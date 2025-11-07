@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoadRater - Road Details</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        #street-view {
+            width: 100%;
+            height: 400px;
+            border-radius: 0.5rem;
+        }
+        .loading-spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .rating-star {
+            font-size: 2rem;
+            cursor: pointer;
+            color: #d1d5db;
+            transition: color 0.2s;
+        }
+        .rating-star.selected,
+        .rating-star:hover {
+            color: #fbbf24;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen flex flex-col">
+
+    <!-- Navigation Header -->
+    <header class="bg-indigo-600 shadow-lg">
+        <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <a href="map-browse.html" class="flex-shrink-0 text-white text-2xl font-bold">RoadRater</a>
+                </div>
+                <div class="flex space-x-2 sm:space-x-4">
+                    <a href="map-browse.html" class="text-white hover:bg-indigo-700 px-3 py-2 rounded-md text-sm font-medium transition">Browse Map</a>
+                    <a href="rate.html" class="text-white hover:bg-indigo-700 px-3 py-2 rounded-md text-sm font-medium transition">Rate</a>
+                    <a href="leaderboard.html" class="text-white hover:bg-indigo-700 px-3 py-2 rounded-md text-sm font-medium transition">Leaderboard</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow p-4 md:p-8">
+        <div class="max-w-5xl mx-auto">
+            
+            <!-- Loading State -->
+            <div id="loading" class="flex items-center justify-center h-96">
+                <div class="text-center">
+                    <div class="loading-spinner mx-auto mb-4"></div>
+                    <p class="text-gray-600">Loading road details...</p>
+                </div>
+            </div>
+
+            <!-- Error State -->
+            <div id="error" class="hidden bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+                <p class="text-red-600 font-semibold mb-2">Failed to load road details</p>
+                <p class="text-gray-600" id="error-message"></p>
+                <a href="map-browse.html" class="inline-block mt-4 bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700">
+                    Back to Map
+                </a>
+            </div>
+
+            <!-- Road Details -->
+            <div id="road-content" class="hidden space-y-6">
+                
+                <!-- Road Header -->
+                <div class="bg-white shadow-xl rounded-xl p-6">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h1 id="road-name" class="text-4xl font-extrabold text-indigo-700 mb-2"></h1>
+                            <div class="flex items-center space-x-4">
+                                <div id="road-stars" class="text-yellow-500 text-2xl"></div>
+                                <span id="road-rating" class="text-gray-600 text-lg"></span>
+                            </div>
+                        </div>
+                        <a href="map-browse.html" class="text-indigo-600 hover:text-indigo-800">
+                            ← Back to Map
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Street View -->
+                <div class="bg-white shadow-xl rounded-xl p-4">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Street View</h2>
+                    <div id="street-view-container">
+                        <div id="street-view"></div>
+                    </div>
+                </div>
+
+                <!-- Rating Form -->
+                <div class="bg-white shadow-xl rounded-xl p-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Rate This Road</h2>
+                    <form id="rating-form" class="space-y-4">
+                        <div>
+                            <label class="block text-gray-700 font-semibold mb-2">Your Rating:</label>
+                            <div id="star-rating" class="flex space-x-2">
+                                <span class="rating-star" data-value="1">★</span>
+                                <span class="rating-star" data-value="2">★</span>
+                                <span class="rating-star" data-value="3">★</span>
+                                <span class="rating-star" data-value="4">★</span>
+                                <span class="rating-star" data-value="5">★</span>
+                            </div>
+                            <input type="hidden" id="rating-value" name="rating" required>
+                        </div>
+                        
+                        <div>
+                            <label for="comment" class="block text-gray-700 font-semibold mb-2">
+                                Comment (optional):
+                            </label>
+                            <textarea 
+                                id="comment" 
+                                name="comment" 
+                                rows="4" 
+                                maxlength="500"
+                                class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                placeholder="Share your experience with this road..."
+                            ></textarea>
+                            <p class="text-sm text-gray-500 mt-1">
+                                <span id="char-count">0</span>/500 characters
+                            </p>
+                        </div>
+
+                        <button 
+                            type="submit" 
+                            id="submit-btn"
+                            class="w-full py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        >
+                            Submit Rating
+                        </button>
+                    </form>
+                    
+                    <div id="form-success" class="hidden mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <p class="text-green-700 font-semibold">Rating submitted successfully!</p>
+                    </div>
+                    
+                    <div id="form-error" class="hidden mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <p class="text-red-700 font-semibold" id="form-error-message"></p>
+                    </div>
+                </div>
+
+                <!-- Existing Ratings -->
+                <div class="bg-white shadow-xl rounded-xl p-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">User Ratings</h2>
+                    <div id="ratings-loading" class="flex justify-center py-8">
+                        <div class="loading-spinner"></div>
+                    </div>
+                    <div id="ratings-list" class="hidden space-y-4">
+                        <!-- Ratings will be populated here -->
+                    </div>
+                    <div id="ratings-empty" class="hidden text-center py-8 text-gray-500">
+                        No ratings yet. Be the first to rate this road!
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { api } from './lib/api.js';
+        import { loadGoogleMapsAPI, initStreetView } from './lib/maps.js';
+
+        let currentRoad = null;
+        let currentSegmentId = null;
+        let selectedRating = 0;
+
+        // Get road ID from URL
+        function getRoadId() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('id');
+        }
+
+        // Initialize the page
+        async function init() {
+            const roadId = getRoadId();
+            
+            if (!roadId) {
+                showError('No road ID provided');
+                return;
+            }
+
+            try {
+                // Load road details
+                await loadRoadDetails(roadId);
+                
+                // Load Google Maps for Street View
+                await loadGoogleMapsAPI();
+                initializeStreetView();
+                
+                // Load ratings
+                await loadRatings(roadId);
+                
+                // Setup form handlers
+                setupRatingForm();
+                
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showError(error.message);
+            }
+        }
+
+        // Load road details from API
+        async function loadRoadDetails(roadId) {
+            try {
+                const response = await api.getRoad(roadId);
+                currentRoad = response.road;
+                currentSegmentId = parseInt(roadId);
+                
+                displayRoadDetails(currentRoad);
+                
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('road-content').classList.remove('hidden');
+                
+            } catch (error) {
+                throw new Error('Failed to load road details: ' + error.message);
+            }
+        }
+
+        // Display road details
+        function displayRoadDetails(road) {
+            document.getElementById('road-name').textContent = road.name;
+            
+            const avgRating = parseFloat(road.average_rating || 0);
+            const totalRatings = parseInt(road.total_ratings || 0);
+            const stars = '★'.repeat(Math.round(avgRating)) + '☆'.repeat(5 - Math.round(avgRating));
+            
+            document.getElementById('road-stars').textContent = stars;
+            document.getElementById('road-rating').textContent = 
+                `${avgRating.toFixed(1)} / 5.0 (${totalRatings} ${totalRatings === 1 ? 'rating' : 'ratings'})`;
+        }
+
+        // Initialize Street View
+        function initializeStreetView() {
+            if (!currentRoad || !currentRoad.lat || !currentRoad.lng) {
+                document.getElementById('street-view-container').innerHTML = 
+                    '<p class="text-gray-500 text-center py-8">Street View not available for this location</p>';
+                return;
+            }
+
+            const element = document.getElementById('street-view');
+            initStreetView(element, parseFloat(currentRoad.lat), parseFloat(currentRoad.lng));
+        }
+
+        // Load ratings
+        async function loadRatings(segmentId) {
+            try {
+                const response = await api.getRatings(segmentId);
+                const ratings = response.ratings || [];
+                
+                document.getElementById('ratings-loading').classList.add('hidden');
+                
+                if (ratings.length === 0) {
+                    document.getElementById('ratings-empty').classList.remove('hidden');
+                } else {
+                    displayRatings(ratings);
+                }
+                
+            } catch (error) {
+                console.error('Failed to load ratings:', error);
+                document.getElementById('ratings-loading').classList.add('hidden');
+            }
+        }
+
+        // Display ratings list
+        function displayRatings(ratings) {
+            const container = document.getElementById('ratings-list');
+            container.classList.remove('hidden');
+            
+            container.innerHTML = ratings.map(rating => {
+                const stars = '★'.repeat(rating.rating) + '☆'.repeat(5 - rating.rating);
+                const date = new Date(rating.created_at).toLocaleDateString();
+                
+                return `
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="text-yellow-500 text-xl">${stars}</div>
+                            <span class="text-sm text-gray-500">${date}</span>
+                        </div>
+                        <p class="text-gray-700">${rating.comment || '<em class="text-gray-400">No comment</em>'}</p>
+                        <p class="text-sm text-gray-500 mt-2">By: ${rating.user_id}</p>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Setup rating form
+        function setupRatingForm() {
+            const stars = document.querySelectorAll('.rating-star');
+            const form = document.getElementById('rating-form');
+            const commentField = document.getElementById('comment');
+            const charCount = document.getElementById('char-count');
+
+            // Star rating interaction
+            stars.forEach(star => {
+                star.addEventListener('click', () => {
+                    selectedRating = parseInt(star.dataset.value);
+                    document.getElementById('rating-value').value = selectedRating;
+                    updateStars(selectedRating);
+                });
+
+                star.addEventListener('mouseenter', () => {
+                    const value = parseInt(star.dataset.value);
+                    updateStars(value);
+                });
+            });
+
+            document.getElementById('star-rating').addEventListener('mouseleave', () => {
+                updateStars(selectedRating);
+            });
+
+            // Character counter
+            commentField.addEventListener('input', (e) => {
+                charCount.textContent = e.target.value.length;
+            });
+
+            // Form submission
+            form.addEventListener('submit', handleFormSubmit);
+        }
+
+        // Update star display
+        function updateStars(rating) {
+            const stars = document.querySelectorAll('.rating-star');
+            stars.forEach((star, index) => {
+                if (index < rating) {
+                    star.classList.add('selected');
+                } else {
+                    star.classList.remove('selected');
+                }
+            });
+        }
+
+        // Handle form submission
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            
+            if (selectedRating === 0) {
+                showFormError('Please select a rating');
+                return;
+            }
+
+            const submitBtn = document.getElementById('submit-btn');
+            const comment = document.getElementById('comment').value.trim();
+            
+            // Disable form
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+            hideFormMessages();
+
+            try {
+                const ratingData = {
+                    segmentId: currentSegmentId,
+                    rating: selectedRating,
+                    comment: comment || undefined,
+                    userId: 'user_' + Date.now() // Placeholder user ID
+                };
+
+                await api.submitRating(ratingData);
+                
+                // Show success
+                document.getElementById('form-success').classList.remove('hidden');
+                
+                // Reset form
+                document.getElementById('rating-form').reset();
+                selectedRating = 0;
+                updateStars(0);
+                
+                // Reload ratings and road details
+                await loadRoadDetails(currentSegmentId);
+                await loadRatings(currentSegmentId);
+                
+                // Scroll to ratings
+                setTimeout(() => {
+                    document.getElementById('ratings-list').scrollIntoView({ behavior: 'smooth' });
+                }, 1000);
+                
+            } catch (error) {
+                showFormError(error.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Rating';
+            }
+        }
+
+        // Show error message
+        function showError(message) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('error').classList.remove('hidden');
+            document.getElementById('error-message').textContent = message;
+        }
+
+        // Show form error
+        function showFormError(message) {
+            const errorDiv = document.getElementById('form-error');
+            document.getElementById('form-error-message').textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        // Hide form messages
+        function hideFormMessages() {
+            document.getElementById('form-success').classList.add('hidden');
+            document.getElementById('form-error').classList.add('hidden');
+        }
+
+        // Start the application
+        init();
+    </script>
+
+</body>
+</html>
