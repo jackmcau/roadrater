@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoadRater - Register</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../style.css">
+</head>
+
+<body class="bg-gray-50 min-h-screen flex flex-col">
+
+    <!-- Navigation Header -->
+    <header class="bg-indigo-600 shadow-lg">
+        <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <a href="index.html" class="flex-shrink-0 text-white text-2xl font-bold">RoadRater</a>
+                </div>
+                <div class="flex space-x-2 sm:space-x-4">
+                    <a href="" class="text-white hover:bg-indigo-700 px-3 py-2 rounded-md text-sm font-medium transition">Welcome to RoadRater</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow flex items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-white shadow-2xl rounded-xl p-8 space-y-6">
+            
+            <header class="text-center">
+                <h1 class="text-6xl font-extrabold text-indigo-700 mb-4 tracking-tight">RoadRater</h1>
+                <h2 class="text-3xl font-bold text-gray-800">Create Account</h2>
+            </header>
+
+            <!-- Form: Submits back to login.html -->
+            <form class="space-y-4" action="login.html" method="GET">
+                <!-- Username Field -->
+                <div>
+                    <label for="reg-username" class="block text-lg font-medium text-gray-700">Username</label>
+                    <input 
+                        type="text" 
+                        id="reg-username" 
+                        placeholder="Choose a username" 
+                        class="mt-1 w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-indigo-200 transition duration-150"
+                        required
+                    >
+                </div>
+
+                <!-- Password Field -->
+                <div>
+                    <label for="reg-password" class="block text-lg font-medium text-gray-700">Password</label>
+                    <input 
+                        type="password" 
+                        id="reg-password" 
+                        placeholder="Create password" 
+                        class="mt-1 w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-indigo-200 transition duration-150"
+                        required
+                    >
+                </div>
+                
+                <!-- Register Button -->
+                <button 
+                    type="submit" 
+                    class="w-full py-3 text-xl font-bold text-white bg-indigo-600 rounded-xl shadow-lg hover:bg-indigo-700 active:bg-indigo-800 transition duration-150 transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-indigo-300"
+                >
+                    Register
+                </button>
+            </form>
+            
+            <!-- Login Link -->
+            <p class="text-center text-sm text-gray-500 mt-4">
+                Already have an account? <a href="login.html" class="font-semibold text-indigo-600 hover:text-indigo-800">Log in here</a>
+            </p>
+            
+        </div>
+    </main>
+
+</body>
+</html>

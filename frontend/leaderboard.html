@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoadRater - Leaderboard</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../style.css">
+</head>
+
+<body class="bg-gray-50 min-h-screen flex flex-col">
+
+    <!-- Navigation Header -->
+    <header class="bg-indigo-600 shadow-lg">
+        <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <a href="index.html" class="flex-shrink-0 text-white text-2xl font-bold">RoadRater</a>
+                </div>
+                <div class="flex space-x-2 sm:space-x-4">
+                    <a href="index.html" class="text-white hover:bg-indigo-700 px-3 py-2 rounded-md text-sm font-medium transition hidden sm:inline-block">Home</a>
+                    <a href="rate.html" class="text-white hover:bg-indigo-700 px-3 py-2 rounded-md text-sm font-medium transition">Rate</a>
+                    <a href="leaderboard.html" class="text-white hover:bg-indigo-700 px-3 py-2 rounded-md text-sm font-medium transition">Leaderboard</a>
+                    <a href="login.html" class="text-white hover:bg-indigo-700 px-3 py-2 rounded-md text-sm font-medium transition hidden sm:inline-block">Logout</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow flex justify-center p-4">
+        <div class="w-full max-w-lg bg-white shadow-xl rounded-xl p-6 md:p-8 mt-6">
+            
+            <header class="text-center mb-8">
+                <h1 class="text-5xl font-extrabold text-indigo-700 tracking-tight">RoadRater</h1>
+                <h2 class="text-2xl font-semibold text-gray-700 mt-2">Global Leaderboard</h2>
+            </header>
+
+            <!-- Leaderboard Table/List -->
+            <div class="space-y-4">
+                <!-- Header Row -->
+                <div class="flex items-center p-3 bg-gray-100 rounded-lg font-bold text-gray-800 text-lg shadow-sm">
+                    <span class="w-1/6 text-center">#</span>
+                    <span class="w-4/6">Road Name / Location</span>
+                    <span class="w-1/6 text-right">Rating</span>
+                </div>
+
+                <!-- Leaderboard Items (Mock Data) -->
+                <!-- Item 1 -->
+                <div class="flex items-center p-3 bg-white border border-yellow-300 rounded-lg shadow-md text-xl font-bold text-gray-900">
+                    <span class="w-1/6 text-center text-yellow-600">1</span>
+                    <span class="w-4/6">Road 1 Name / Location</span>
+                    <span class="w-1/6 text-right">Rating</span>
+                </div>
+                
+                <!-- Item 2 -->
+                <div class="flex items-center p-3 bg-white border border-gray-200 rounded-lg shadow-sm text-lg font-semibold text-gray-800">
+                    <span class="w-1/6 text-center text-gray-500">2</span>
+                    <span class="w-4/6">Road 2 Name / Location</span>
+                    <span class="w-1/6 text-right">Rating</span>
+                </div>
+
+                <!-- Item 3 -->
+                <div class="flex items-center p-3 bg-white border border-gray-200 rounded-lg shadow-sm text-lg font-semibold text-gray-800">
+                    <span class="w-1/6 text-center text-gray-500">3</span>
+                    <span class="w-4/6">Road 3 Name / Location</span>
+                    <span class="w-1/6 text-right">Rating</span>
+                </div>
+
+                <!-- Item 4 -->
+                <div class="flex items-center p-3 bg-white border border-gray-200 rounded-lg shadow-sm text-lg font-semibold text-gray-800">
+                    <span class="w-1/6 text-center text-gray-500">4</span>
+                    <span class="w-4/6">Road 4 Name / Location</span>
+                    <span class="w-1/6 text-right">Rating</span>
+                </div>
+
+                <!-- Item 5 -->
+                <div class="flex items-center p-3 bg-white border border-gray-200 rounded-lg shadow-sm text-lg font-semibold text-gray-800">
+                    <span class="w-1/6 text-center text-gray-500">5</span>
+                    <span class="w-4/6">Road 5 Name / Location</span>
+                    <span class="w-1/6 text-right">Rating</span>
+                </div>
+
+            </div>
+            
+        </div>
+    </main>
+
+</body>
+</html>
