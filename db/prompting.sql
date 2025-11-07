@@ -27,4 +27,5 @@ FROM roads
 INNER JOIN ratings
 ON ratings.road_id = roads.id
 GROUP BY roads.id
+ORDER BY AVG(ratings.rating) DESC
 LIMIT 5;
