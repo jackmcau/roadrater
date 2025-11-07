@@ -35,8 +35,8 @@
                 <h2 class="text-3xl font-bold text-gray-800">Create Account</h2>
             </header>
 
-            <!-- Form: Submits back to login.html -->
-            <form class="space-y-4" action="login.html" method="GET">
+            <!-- Form: Submits via JavaScript -->
+            <form class="space-y-4" id="register-form">
                 <!-- Username Field -->
                 <div>
                     <label for="reg-username" class="block text-lg font-medium text-gray-700">Username</label>
@@ -77,6 +77,37 @@
             
         </div>
     </main>
+
+    <!-- JavaScript to handle form submission -->
+    <script>
+        document.getElementById('register-form').addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const username = document.getElementById('reg-username').value;
+            const password = document.getElementById('reg-password').value;
+
+            try {
+                const response = await fetch('http://localhost:3000/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password }),
+                });
+
+                if (response.ok) {
+                    // Redirect to login page on successful registration
+                    window.location.href = 'login.html';
+                } else {
+                    const errorData = await response.json();
+                    alert(`Registration failed: ${errorData.message || 'Please try again.'}`);
+                }
+            } catch (error) {
+                console.error('Error during registration:', error);
+                alert('An error occurred. Please check the console and try again.');
+            }
+        });
+    </script>
 
 </body>
 </html>

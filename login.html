@@ -35,7 +35,7 @@
                 <h2 class="text-3xl font-bold text-gray-800">Login</h2>
             </header>
 
-            <form class="space-y-4">
+            <form class="space-y-4" id="login-form">
                 <!-- Username Field -->
                 <div>
                     <label for="username" class="block text-lg font-medium text-gray-700">Username</label>
@@ -76,6 +76,40 @@
             
         </div>
     </main>
+
+    <!-- Login Form Submission Script -->
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('http://localhost:3000/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password }),
+                });
+
+                if (response.ok) {
+                    const { token } = await response.json();
+                    // Store the token in localStorage for session management
+                    localStorage.setItem('token', token);
+                    // Redirect to the main page on successful login
+                    window.location.href = 'index.html';
+                } else {
+                    const errorData = await response.json();
+                    alert(`Login failed: ${errorData.message || 'Please try again.'}`);
+                }
+            } catch (error) {
+                console.error('Error during login:', error);
+                alert('An error occurred. Please check the console and try again.');
+            }
+        });
+    </script>
 
 </body>
 </html>
