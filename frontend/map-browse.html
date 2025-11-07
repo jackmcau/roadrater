@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoadRater - Browse Roads</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        #map {
+            width: 100%;
+            height: 600px;
+            border-radius: 0.5rem;
+        }
+        .loading-spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen flex flex-col">
+
+    <!-- Navigation Header -->
+    <header class="bg-indigo-600 shadow-lg">
+        <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <a href="map-browse.html" class="flex-shrink-0 text-white text-2xl font-bold">RoadRater</a>
+                </div>
+                <div class="flex space-x-2 sm:space-x-4">
+                    <a href="map-browse.html" class="text-white hover:bg-indigo-700 px-3 py-2 rounded-md text-sm font-medium transition">Browse Map</a>
+                    <a href="rate.html" class="text-white hover:bg-indigo-700 px-3 py-2 rounded-md text-sm font-medium transition">Rate</a>
+                    <a href="leaderboard.html" class="text-white hover:bg-indigo-700 px-3 py-2 rounded-md text-sm font-medium transition">Leaderboard</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow p-4 md:p-8">
+        <div class="max-w-7xl mx-auto">
+            
+            <!-- Page Header -->
+            <div class="mb-6">
+                <h1 class="text-4xl font-extrabold text-indigo-700 mb-2">Browse Roads</h1>
+                <p class="text-gray-600">Click on markers to view road details and ratings</p>
+            </div>
+
+            <!-- Map Container -->
+            <div class="bg-white shadow-xl rounded-xl p-4 mb-6">
+                <div id="map-loading" class="flex items-center justify-center h-96">
+                    <div class="text-center">
+                        <div class="loading-spinner mx-auto mb-4"></div>
+                        <p class="text-gray-600">Loading map...</p>
+                    </div>
+                </div>
+                <div id="map" class="hidden"></div>
+                <div id="map-error" class="hidden p-8 text-center">
+                    <p class="text-red-600 font-semibold mb-2">Failed to load map</p>
+                    <p class="text-gray-600" id="error-message"></p>
+                </div>
+            </div>
+
+            <!-- Roads List -->
+            <div class="bg-white shadow-xl rounded-xl p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">All Roads</h2>
+                <div id="roads-loading" class="flex justify-center py-8">
+                    <div class="loading-spinner"></div>
+                </div>
+                <div id="roads-list" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Roads will be populated here -->
+                </div>
+                <div id="roads-error" class="hidden text-center py-8 text-red-600">
+                    Failed to load roads
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { api } from './lib/api.js';
+        import { loadGoogleMapsAPI, initMap, addRoadMarkers } from './lib/maps.js';
+
+        let roads = [];
+
+        // Initialize the application
+        async function init() {
+            try {
+                // Load Google Maps API
+                await loadGoogleMapsAPI();
+                
+                // Show map, hide loading
+                document.getElementById('map-loading').classList.add('hidden');
+                document.getElementById('map').classList.remove('hidden');
+                
+                // Initialize map
+                const mapElement = document.getElementById('map');
+                initMap(mapElement);
+                
+                // Fetch and display roads
+                await loadRoads();
+                
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showMapError(error.message);
+            }
+        }
+
+        // Load roads from API
+        async function loadRoads() {
+            try {
+                const response = await api.getRoads();
+                roads = response.roads || [];
+                
+                // Add markers to map
+                addRoadMarkers(roads, (road) => {
+                    console.log('Road clicked:', road);
+                });
+                
+                // Display roads list
+                displayRoadsList(roads);
+                
+            } catch (error) {
+                console.error('Failed to load roads:', error);
+                document.getElementById('roads-loading').classList.add('hidden');
+                document.getElementById('roads-error').classList.remove('hidden');
+            }
+        }
+
+        // Display roads in list format
+        function displayRoadsList(roads) {
+            const container = document.getElementById('roads-list');
+            const loading = document.getElementById('roads-loading');
+            
+            loading.classList.add('hidden');
+            container.classList.remove('hidden');
+            
+            if (roads.length === 0) {
+                container.innerHTML = '<p class="col-span-full text-center text-gray-500">No roads found</p>';
+                return;
+            }
+            
+            container.innerHTML = roads.map(road => {
+                const avgRating = parseFloat(road.average_rating || 0).toFixed(1);
+                const ratingCount = road.rating_count || 0;
+                const stars = '★'.repeat(Math.round(avgRating)) + '☆'.repeat(5 - Math.round(avgRating));
+                
+                return `
+                    <div class="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition">
+                        <h3 class="font-bold text-lg text-gray-800 mb-2">${road.name}</h3>
+                        <div class="text-yellow-500 text-xl mb-2">${stars}</div>
+                        <p class="text-gray-600 text-sm mb-3">
+                            ${avgRating} / 5.0 (${ratingCount} ${ratingCount === 1 ? 'rating' : 'ratings'})
+                        </p>
+                        <a href="road-detail.html?id=${road.id}" 
+                           class="inline-block w-full text-center bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition">
+                            View Details
+                        </a>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Show map error
+        function showMapError(message) {
+            document.getElementById('map-loading').classList.add('hidden');
+            document.getElementById('map-error').classList.remove('hidden');
+            document.getElementById('error-message').textContent = message;
+        }
+
+        // Start the application
+        init();
+    </script>
+
+</body>
+</html>
