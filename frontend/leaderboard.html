@@ -39,7 +39,7 @@
             </header>
 
             <!-- Leaderboard Table/List -->
-            <div class="space-y-4">
+            <div id="leaderboard-container" class="space-y-4">
                 <!-- Header Row -->
                 <div class="flex items-center p-3 bg-gray-100 rounded-lg font-bold text-gray-800 text-lg shadow-sm">
                     <span class="w-1/6 text-center">#</span>
@@ -88,5 +88,27 @@
         </div>
     </main>
 
+    <script>
+        async function getData() {
+            const res = await fetch("/top5");
+            const data = await res.json();
+            console.log("Received:", data);
+            return data;
+        }
+
+        async function main() {
+            const data = await getData();
+
+            let cont = document.getElementById("leaderboard-container");
+
+            for (let i = 0; i < data.roads.length; i++) {
+                let element = cont.children[i + 1];
+                element.children[1].innerHTML = data.roads[i].name;
+                element.children[2].innerHTML = data.roads[i].avg.toString().slice(0, 3);
+            }
+        }
+
+        main();
+    </script>
 </body>
 </html>

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import roadsRouter from './routes/roads.js';
 import ratingsRouter from './routes/ratings.js';
 import authRouter from './routes/auth.js';
+import top5Router from './routes/top5.js';
 import { errorHandler } from './utils/httpError.js';
 
 dotenv.config();
@@ -46,6 +47,7 @@ app.get('/health', (req, res) => {
 app.use('/roads', roadsRouter);
 app.use('/ratings', ratingsRouter);
 app.use('/auth', authRouter);
+app.use('/top5', top5Router);
 
 // Serve the frontend for any other GET request
 app.get('*', (req, res) => {
