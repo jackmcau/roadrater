@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import roadsRouter from './routes/roads.js';
 import ratingsRouter from './routes/ratings.js';
 import { errorHandler } from './utils/httpError.js';
@@ -10,6 +12,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Middleware
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
@@ -17,6 +22,9 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files from the frontend directory
+app.use(express.static(path.join(__dirname, '../../frontend')));
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -36,6 +44,11 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/roads', roadsRouter);
 app.use('/ratings', ratingsRouter);
+
+// Serve the frontend for any other GET request
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../frontend/index.html'));
+});
 
 // 404 handler
 app.use((req, res) => {
