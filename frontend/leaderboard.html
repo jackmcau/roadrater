@@ -39,7 +39,7 @@
             </header>
 
             <!-- Leaderboard Table/List -->
-            <div class="space-y-4">
+            <div id="leaderboard-container" class="space-y-4">
                 <!-- Header Row -->
                 <div class="flex items-center p-3 bg-gray-100 rounded-lg font-bold text-gray-800 text-lg shadow-sm">
                     <span class="w-1/6 text-center">#</span>
@@ -49,35 +49,35 @@
 
                 <!-- Leaderboard Items (Mock Data) -->
                 <!-- Item 1 (Gold, more prominent) -->
-                <div id="first" class="flex items-center p-2 bg-white border-2 border-yellow-400 rounded-lg shadow-md text-xl font-bold text-gray-900">
+                <div class="flex items-center p-2 bg-white border-2 border-yellow-400 rounded-lg shadow-md text-xl font-bold text-gray-900">
                     <span class="w-1/6 text-center text-yellow-700">1</span>
                     <span class="w-4/6">Road 1 Name / Location</span>
                     <span class="w-1/6 text-right">Rating</span>
                 </div>
                 
                 <!-- Item 2 (Silver, more prominent) -->
-                <div id="second" class="flex items-center p-2 bg-white border-2 border-gray-600 rounded-lg shadow-sm text-xl font-semibold text-gray-800">
+                <div class="flex items-center p-2 bg-white border-2 border-gray-600 rounded-lg shadow-sm text-xl font-semibold text-gray-800">
                     <span class="w-1/6 text-center text-gray-700">2</span>
                     <span class="w-4/6">Road 2 Name / Location</span>
                     <span class="w-1/6 text-right">Rating</span>
                 </div>
 
                 <!-- Item 3 (Bronze, more prominent) -->
-                <div id="third" class="flex items-center p-2 bg-white rounded-lg shadow-sm text-xl font-semibold text-gray-800" style="border:2px solid #b87333;">
+                <div class="flex items-center p-2 bg-white rounded-lg shadow-sm text-xl font-semibold text-gray-800" style="border:2px solid #b87333;">
                     <span class="w-1/6 text-center" style="color:#b87333; font-weight:700;">3</span>
                     <span class="w-4/6">Road 3 Name / Location</span>
                     <span class="w-1/6 text-right">Rating</span>
                 </div>
 
                 <!-- Item 4 -->
-                <div id="fourth" class="flex items-center p-2 bg-white border border-gray-200 rounded-lg shadow-sm text-lg font-semibold text-gray-800">
+                <div class="flex items-center p-2 bg-white border border-gray-200 rounded-lg shadow-sm text-lg font-semibold text-gray-800">
                     <span class="w-1/6 text-center text-gray-700">4</span>
                     <span class="w-4/6">Road 4 Name / Location</span>
                     <span class="w-1/6 text-right">Rating</span>
                 </div>
 
                 <!-- Item 5 -->
-                <div id="fifth" class="flex items-center p-2 bg-white border border-gray-200 rounded-lg shadow-sm text-lg font-semibold text-gray-800">
+                <div class="flex items-center p-2 bg-white border border-gray-200 rounded-lg shadow-sm text-lg font-semibold text-gray-800">
                     <span class="w-1/6 text-center text-gray-700">5</span>
                     <span class="w-4/6">Road 5 Name / Location</span>
                     <span class="w-1/6 text-right">Rating</span>
@@ -88,5 +88,27 @@
         </div>
     </main>
 
+    <script>
+        async function getData() {
+            const res = await fetch("/top5");
+            const data = await res.json();
+            console.log("Received:", data);
+            return data;
+        }
+
+        async function main() {
+            const data = await getData();
+
+            let cont = document.getElementById("leaderboard-container");
+
+            for (let i = 0; i < data.roads.length; i++) {
+                let element = cont.children[i + 1];
+                element.children[1].innerHTML = data.roads[i].name;
+                element.children[2].innerHTML = data.roads[i].avg.toString().slice(0, 3);
+            }
+        }
+
+        main();
+    </script>
 </body>
 </html>
