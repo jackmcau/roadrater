@@ -35,8 +35,12 @@
                 <h2 class="text-3xl font-bold text-gray-800">Create Account</h2>
             </header>
 
+            <div id="error-message" class="hidden p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert">
+            </div>
+            <div id="success-message" class="hidden p-4 mb-4 text-sm text-green-800 rounded-lg bg-green-50" role="alert">
+            </div>
             <!-- Form: Submits back to login.html -->
-            <form class="space-y-4" action="login.html" method="GET">
+            <form class="space-y-4" id="register-form">
                 <!-- Username Field -->
                 <div>
                     <label for="reg-username" class="block text-lg font-medium text-gray-700">Username</label>
@@ -77,6 +81,45 @@
             
         </div>
     </main>
+    <script>
+        const form = document.getElementById('register-form');
+        const errorMessage = document.getElementById('error-message');
+        const successMessage = document.getElementById('success-message');
 
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            errorMessage.classList.add('hidden');
+            successMessage.classList.add('hidden');
+
+            const username = document.getElementById('reg-username').value;
+            const password = document.getElementById('reg-password').value;
+
+            try {
+                const response = await fetch('/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password }),
+                });
+
+                if (response.ok) {
+                    successMessage.textContent = 'Registration successful! You can now log in.';
+                    successMessage.classList.remove('hidden');
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 2000);
+                } else {
+                    const errorData = await response.json();
+                    errorMessage.textContent = `Registration failed: ${errorData.message}`;
+                    errorMessage.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error during registration:', error);
+                errorMessage.textContent = 'An error occurred. Please try again.';
+                errorMessage.classList.remove('hidden');
+            }
+        });
+    </script>
 </body>
 </html>

@@ -16,14 +16,15 @@
     <header class="bg-indigo-600 shadow-lg">
         <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
-                <div class="flex items-center">
+                <div class="flex items-center space-x-3">
                     <a href="index.html" class="flex-shrink-0 text-white text-2xl font-bold">RoadRater</a>
+                    <span id="user-greeting" class="hidden text-indigo-100 text-sm sm:text-base font-semibold tracking-tight"></span>
                 </div>
                 <div class="flex space-x-2 sm:space-x-4">
                     <a href="map-browse.html" class="text-white hover:bg-indigo-700 px-3 py-2 rounded-md text-sm font-medium transition">Browse Map</a>
                     <a href="rate.html" class="text-white hover:bg-indigo-700 px-3 py-2 rounded-md text-sm font-medium transition">Rate</a>
                     <a href="leaderboard.html" class="text-white hover:bg-indigo-700 px-3 py-2 rounded-md text-sm font-medium transition">Leaderboard</a>
-                    <a href="login.html" class="text-white hover:bg-indigo-700 hover:bg-indigo-800 px-3 py-2 rounded-md text-sm font-medium transition hidden sm:inline-block">Logout</a>
+                    <a id="auth-link" href="login.html" class="text-white hover:bg-indigo-700 hover:bg-indigo-800 px-3 py-2 rounded-md text-sm font-medium transition">Logout</a>
                 </div>
             </div>
         </nav>
@@ -50,6 +51,46 @@
             
         </div>
     </main>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const greetingEl = document.getElementById('user-greeting');
+            const authLink = document.getElementById('auth-link');
+
+            const updateGreeting = () => {
+                const token = localStorage.getItem('token');
+                const username = localStorage.getItem('username');
+
+                if (!greetingEl || !authLink) return;
+
+                if (token && username) {
+                    greetingEl.textContent = `Hi ${username}`;
+                    greetingEl.classList.remove('hidden');
+                    authLink.textContent = 'Logout';
+                    authLink.dataset.mode = 'logout';
+                } else {
+                    greetingEl.textContent = '';
+                    greetingEl.classList.add('hidden');
+                    authLink.textContent = 'Login';
+                    authLink.href = 'login.html';
+                    authLink.dataset.mode = 'login';
+                }
+            };
+
+            updateGreeting();
+
+            if (authLink) {
+                authLink.addEventListener('click', (event) => {
+                    if (authLink.dataset.mode === 'logout') {
+                        event.preventDefault();
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('username');
+                        updateGreeting();
+                        window.location.href = 'login.html';
+                    }
+                });
+            }
+        });
+    </script>
 
 </body>
 </html>

@@ -27,8 +27,8 @@ export const notFound = (message = 'Resource not found') => {
 /**
  * Create a 500 Internal Server Error
  */
-export const internalError = (message = 'Internal server error') => {
-  return new HttpError(500, message);
+export const internalError = (message = 'Internal server error', details = null) => {
+  return new HttpError(500, message, details);
 };
 
 /**
@@ -41,7 +41,7 @@ export const errorHandler = (err, req, res, next) => {
   // Handle HttpError instances
   if (err instanceof HttpError) {
     return res.status(err.statusCode).json({
-      error: err.message,
+      message: err.message,
       details: err.details
     });
   }
@@ -49,30 +49,15 @@ export const errorHandler = (err, req, res, next) => {
   // Handle validation errors
   if (err.name === 'ValidationError') {
     return res.status(400).json({
-      error: 'Validation failed',
-      details: err.message
+      message: 'Validation Error',
+      details: err.errors
     });
   }
   
-  // Handle database errors
-  if (err.code) {
-    // PostgreSQL error codes
-    if (err.code === '23503') {
-      return res.status(404).json({
-        error: 'Referenced resource not found'
-      });
-    }
-    if (err.code === '23505') {
-      return res.status(409).json({
-        error: 'Resource already exists'
-      });
-    }
-  }
-  
-  // Default to 500 for unknown errors
+  // Default to 500 Internal Server Error
   res.status(500).json({
-    error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined
+    message: 'An unexpected error occurred',
+    details: err.message
   });
 };
 

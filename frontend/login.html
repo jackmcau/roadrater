@@ -35,7 +35,9 @@
                 <h2 class="text-3xl font-bold text-gray-800">Login</h2>
             </header>
 
-            <form class="space-y-4">
+            <form class="space-y-4" id="login-form">
+                <div id="error-message" class="hidden p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert">
+                </div>
                 <!-- Username Field -->
                 <div>
                     <label for="username" class="block text-lg font-medium text-gray-700">Username</label>
@@ -76,5 +78,42 @@
             
         </div>
     </main>
+    <script>
+        const form = document.getElementById('login-form');
+        const errorMessage = document.getElementById('error-message');
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            errorMessage.classList.add('hidden'); // Hide error message on new submission
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password }),
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('username', username);
+                    window.location.href = '/'; // Redirect to home page
+                } else {
+                    const errorData = await response.json();
+                    errorMessage.textContent = `Login failed: ${errorData.message}`;
+                    errorMessage.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error during login:', error);
+                errorMessage.textContent = 'An error occurred. Please try again.';
+                errorMessage.classList.remove('hidden');
+            }
+        });
+    </script>
     </body>
     </html>
