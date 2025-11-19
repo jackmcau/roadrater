@@ -91,8 +91,32 @@
             errorMessage.classList.add('hidden');
             successMessage.classList.add('hidden');
 
-            const username = document.getElementById('reg-username').value;
+            const username = document.getElementById('reg-username').value.trim();
             const password = document.getElementById('reg-password').value;
+
+            // Client-side validation rules
+            const errors = [];
+            // Username: at least 8 characters and may contain letters or numbers
+            if (username.length < 8) {
+                errors.push('Username must be at least 8 characters long.');
+            }
+            if (!/^[A-Za-z0-9]+$/.test(username)) {
+                errors.push('Username may only contain letters and numbers.');
+            }
+            // Password: at least 8 characters and at least one number
+            if (password.length < 8) {
+                errors.push('Password must be at least 8 characters long.');
+            }
+            if (!/[0-9]/.test(password)) {
+                errors.push('Password must contain at least one number.');
+            }
+
+            if (errors.length > 0) {
+                // Show combined error messages
+                errorMessage.innerHTML = errors.map(e => `<div>• ${e}</div>`).join('');
+                errorMessage.classList.remove('hidden');
+                return;
+            }
 
             try {
                 const response = await fetch('/auth/register', {
@@ -110,13 +134,32 @@
                         window.location.href = 'login.html';
                     }, 2000);
                 } else {
-                    const errorData = await response.json();
-                    errorMessage.textContent = `Registration failed: ${errorData.message}`;
+                    // Parse structured JSON error if available
+                    try {
+                        const data = await response.json();
+                        if (data && data.error) {
+                            // If server provided field, show inline message with field name
+                            if (data.field) {
+                                errorMessage.innerHTML = `<div>• ${data.error}</div>`;
+                            } else {
+                                errorMessage.innerHTML = `<div>• ${data.error}</div>`;
+                            }
+                        } else {
+                            const txt = await response.text();
+                            errorMessage.textContent = txt || `Registration failed (status ${response.status}).`;
+                        }
+                    } catch (e) {
+                        const txt = await response.text().catch(() => null);
+                        errorMessage.textContent = txt || `Registration failed (status ${response.status}).`;
+                    }
                     errorMessage.classList.remove('hidden');
                 }
             } catch (error) {
-                console.error('Error during registration:', error);
-                errorMessage.textContent = 'An error occurred. Please try again.';
+                console.error('Error during registration (network/exception):', error);
+                // Show more helpful info for debugging network/fetch errors
+                let msg = 'An error occurred. Please try again.';
+                if (error && error.message) msg = `Network error: ${error.message}`;
+                errorMessage.textContent = msg;
                 errorMessage.classList.remove('hidden');
             }
         });

@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import pool from '../db/connect.js';
 import { HttpError } from '../utils/httpError.js';
+import { validateUsername, validatePassword } from '../utils/validateUser.js';
 
 const router = Router();
 
@@ -12,6 +13,16 @@ router.post('/register', async (req, res, next) => {
 
   if (!username || !password) {
     return next(new HttpError(400, 'Username and password are required'));
+  }
+
+  // Use validators and return structured JSON error responses
+  const usernameErr = validateUsername(username);
+  if (usernameErr) {
+    return res.status(400).json({ error: usernameErr, field: 'username' });
+  }
+  const passwordErr = validatePassword(password);
+  if (passwordErr) {
+    return res.status(400).json({ error: passwordErr, field: 'password' });
   }
 
   try {
