@@ -8,23 +8,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../style.css">
+    <script defer src="./lib/navbar.js"></script>
 </head>
 
 <body class="bg-gray-50 min-h-screen flex flex-col">
 
-    <!-- Navigation Header -->
-    <header class="bg-indigo-600 shadow-lg">
-        <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <div class="flex items-center">
-                    <a href="index.html" class="flex-shrink-0 text-white text-2xl font-bold">RoadRater</a>
-                </div>
-                <div class="flex space-x-2 sm:space-x-4">
-                    <a href="" class="text-white hover:bg-indigo-700 px-3 py-2 rounded-md text-sm font-medium transition">Welcome to RoadRater</a>
-                </div>
-            </div>
-        </nav>
-    </header>
+    <div data-component="navbar"></div>
 
     <!-- Main Content Area -->
     <main class="flex-grow flex items-center justify-center p-4">
