@@ -1,8 +1,12 @@
 (() => {
+  const LOGIN_PAGE = 'login.html';
+  const LOGIN_PROMPT_STORAGE_KEY = 'loginPromptMessage';
+  const LOGIN_REQUIRED_MESSAGE = 'You need to be logged in to rate roads!';
+
   const NAV_ITEMS = [
     { id: 'home', label: 'Home', href: 'index.html' },
     { id: 'browse', label: 'Browse Map', href: 'map-browse.html' },
-    { id: 'rate', label: 'Rate', href: 'rate.html' },
+    { id: 'rate', label: 'Rate', href: 'rate.html', requiresAuth: true, loginMessage: LOGIN_REQUIRED_MESSAGE },
     { id: 'leaderboard', label: 'Leaderboard', href: 'leaderboard.html' }
   ];
 
@@ -10,11 +14,15 @@
 
   const buildNavMarkup = (activeId) => {
     const navLinksHtml = NAV_ITEMS
-      .map(({ id, label, href }) => {
+      .map(({ id, label, href, requiresAuth, loginMessage }) => {
         const isActive = id === activeId;
-  const activeClasses = isActive ? ' bg-indigo-700 bg-opacity-80' : '';
+        const activeClasses = isActive ? ' bg-indigo-700 bg-opacity-80' : '';
         const ariaCurrent = isActive ? ' aria-current="page"' : '';
-        return `<a href="${href}" data-nav-id="${id}" class="${LINK_BASE_CLASSES}${activeClasses}"${ariaCurrent}>${label}</a>`;
+        const requiresAuthAttr = requiresAuth
+          ? ` data-requires-auth="true" data-auth-href="${href}" data-login-message="${loginMessage ?? ''}"`
+          : '';
+
+        return `<a href="${href}" data-nav-id="${id}" class="${LINK_BASE_CLASSES}${activeClasses}"${ariaCurrent}${requiresAuthAttr}>${label}</a>`;
       })
       .join('');
 
@@ -28,7 +36,7 @@
             </div>
             <div class="flex flex-wrap items-center gap-2 sm:gap-3">
               ${navLinksHtml}
-              <a href="login.html" data-role="auth-link" class="${LINK_BASE_CLASSES}">Login</a>
+              <a href="${LOGIN_PAGE}" data-role="auth-link" class="${LINK_BASE_CLASSES}">Login</a>
             </div>
           </div>
         </nav>
@@ -51,8 +59,24 @@
   const setupAuthHandlers = (navElement) => {
     const authLink = navElement.querySelector('[data-role="auth-link"]');
     const greetingEl = navElement.querySelector('[data-role="greeting"]');
+    const protectedLinks = Array.from(navElement.querySelectorAll('[data-requires-auth="true"]'));
 
     if (!authLink || !greetingEl) return;
+
+    const attachProtectedHandlers = () => {
+      protectedLinks.forEach((link) => {
+        link.addEventListener('click', () => {
+          const token = localStorage.getItem('token');
+          if (token) return;
+          const message = link.getAttribute('data-login-message');
+          if (message) {
+            localStorage.setItem(LOGIN_PROMPT_STORAGE_KEY, message);
+          } else {
+            localStorage.removeItem(LOGIN_PROMPT_STORAGE_KEY);
+          }
+        });
+      });
+    };
 
     const updateAuthUI = () => {
       const token = localStorage.getItem('token');
@@ -64,12 +88,28 @@
         authLink.textContent = 'Logout';
         authLink.dataset.mode = 'logout';
         authLink.setAttribute('href', '#');
+        localStorage.removeItem(LOGIN_PROMPT_STORAGE_KEY);
+        protectedLinks.forEach((link) => {
+          const authHref = link.getAttribute('data-auth-href') || 'index.html';
+          link.setAttribute('href', authHref);
+          link.removeAttribute('aria-disabled');
+          link.removeAttribute('data-needs-login');
+          link.removeAttribute('title');
+        });
       } else {
         greetingEl.textContent = '';
         greetingEl.classList.add('hidden');
         authLink.textContent = 'Login';
         authLink.dataset.mode = 'login';
-        authLink.setAttribute('href', 'login.html');
+        authLink.setAttribute('href', LOGIN_PAGE);
+        protectedLinks.forEach((link) => {
+          link.setAttribute('href', LOGIN_PAGE);
+          link.setAttribute('aria-disabled', 'true');
+          link.dataset.needsLogin = 'true';
+          if (!link.getAttribute('title')) {
+            link.setAttribute('title', 'Please log in to continue');
+          }
+        });
       }
     };
 
@@ -89,6 +129,7 @@
     });
 
     updateAuthUI();
+    attachProtectedHandlers();
   };
 
   document.addEventListener('DOMContentLoaded', () => {

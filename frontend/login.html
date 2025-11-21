@@ -70,6 +70,17 @@
     <script>
         const form = document.getElementById('login-form');
         const errorMessage = document.getElementById('error-message');
+        const LOGIN_PROMPT_STORAGE_KEY = 'loginPromptMessage';
+
+        const showStoredPrompt = () => {
+            const storedMessage = localStorage.getItem(LOGIN_PROMPT_STORAGE_KEY);
+            if (!storedMessage) return;
+            errorMessage.textContent = storedMessage;
+            errorMessage.classList.remove('hidden');
+            localStorage.removeItem(LOGIN_PROMPT_STORAGE_KEY);
+        };
+
+        showStoredPrompt();
 
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
