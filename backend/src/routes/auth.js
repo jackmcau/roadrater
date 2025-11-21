@@ -23,7 +23,7 @@ const handleMissingJwtSecret = (next) => {
 // Register a new user
 router.post('/register', async (req, res, next) => {
   const { username: rawUsername, password } = req.body || {};
-  const username = normalizeUsername(rawUsername);
+  const username = normalizedUsername(rawUsername);
 
   if (!username || !password) {
     return next(new HttpError(400, 'Username and password are required'));
