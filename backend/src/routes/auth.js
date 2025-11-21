@@ -7,9 +7,23 @@ import { validateUsername, validatePassword } from '../utils/validateUser.js';
 
 const router = Router();
 
+const normalizeUsername = (value) => (typeof value === 'string' ? value.trim() : value);
+
+const isDbMissingTableError = (err) => err?.code === '42P01';
+
+const handleMissingJwtSecret = (next) => {
+  if (!process.env.JWT_SECRET) {
+    console.error('[auth] JWT_SECRET is not configured');
+    next(new HttpError(500, 'Authentication service misconfigured'));
+    return true;
+  }
+  return false;
+};
+
 // Register a new user
 router.post('/register', async (req, res, next) => {
-  const { username, password } = req.body;
+  const { username: rawUsername, password } = req.body || {};
+  const username = normalizeUsername(rawUsername);
 
   if (!username || !password) {
     return next(new HttpError(400, 'Username and password are required'));
@@ -36,8 +50,12 @@ router.post('/register', async (req, res, next) => {
       username: newUser.rows[0].username,
     });
   } catch (err) {
+    console.error('[auth] Error during registration:', err);
     if (err.code === '23505') { // Unique violation
       return next(new HttpError(409, 'Username already exists'));
+    }
+    if (isDbMissingTableError(err)) {
+      return next(new HttpError(500, 'User table has not been initialized'));
     }
     next(new HttpError(500, 'Server error during registration', err.message));
   }
@@ -45,7 +63,8 @@ router.post('/register', async (req, res, next) => {
 
 // Login a user
 router.post('/login', async (req, res, next) => {
-  const { username, password } = req.body;
+  const { username: rawUsername, password } = req.body || {};
+  const username = normalizeUsername(rawUsername);
 
   if (!username || !password) {
     return next(new HttpError(400, 'Username and password are required'));
@@ -63,12 +82,20 @@ router.post('/login', async (req, res, next) => {
       return next(new HttpError(401, 'Invalid credentials'));
     }
 
+    if (handleMissingJwtSecret(next)) {
+      return;
+    }
+
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
       expiresIn: '1h',
     });
 
     res.json({ token });
   } catch (err) {
+    console.error('[auth] Error during login:', err);
+    if (isDbMissingTableError(err)) {
+      return next(new HttpError(500, 'User table has not been initialized'));
+    }
     next(new HttpError(500, 'Server error during login', err.message));
   }
 });
