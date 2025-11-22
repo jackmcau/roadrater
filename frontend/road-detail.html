@@ -165,26 +165,28 @@
     <script type="module">
         import { api, ApiError, authStore } from './lib/api.js';
         import { loadGoogleMapsAPI, initStreetView } from './lib/maps.js';
+        import { updateRoadHeader, resetRatingsSection, renderRatingsSection, createStarRating } from './lib/roadUi.js';
 
         let currentRoad = null;
         let currentSegmentId = null;
         let selectedRating = 0;
         const submitBtn = document.getElementById('submit-btn');
         const loginWarning = document.getElementById('login-warning');
-
-        const escapeHtml = (value = '') => String(value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-
-        const renderComment = (comment) => {
-            if (!comment) {
-                return '<em class="text-gray-400">No comment</em>';
-            }
-            return escapeHtml(comment);
+        const ratingForm = document.getElementById('rating-form');
+        const commentField = document.getElementById('comment');
+        const charCount = document.getElementById('char-count');
+        const ratingValueInput = document.getElementById('rating-value');
+        const ratingElements = {
+            loadingEl: document.getElementById('ratings-loading'),
+            emptyEl: document.getElementById('ratings-empty'),
+            listEl: document.getElementById('ratings-list'),
         };
+        const roadHeaderElements = {
+            nameEl: document.getElementById('road-name'),
+            starsEl: document.getElementById('road-stars'),
+            summaryEl: document.getElementById('road-rating'),
+        };
+        let starRatingController = null;
 
         // Get road ID from URL
         function getRoadId() {
@@ -228,7 +230,7 @@
                 currentRoad = road;
                 currentSegmentId = Number.parseInt(roadId, 10);
                 
-                displayRoadDetails(currentRoad);
+                updateRoadHeader(currentRoad, roadHeaderElements);
                 
                 document.getElementById('loading').classList.add('hidden');
                 document.getElementById('road-content').classList.remove('hidden');
@@ -236,19 +238,6 @@
             } catch (error) {
                 throw new Error('Failed to load road details: ' + error.message);
             }
-        }
-
-        // Display road details
-        function displayRoadDetails(road) {
-            document.getElementById('road-name').textContent = road.name;
-            
-            const avgRating = parseFloat(road.average_rating || 0);
-            const totalRatings = parseInt(road.total_ratings || 0);
-            const stars = '★'.repeat(Math.round(avgRating)) + '☆'.repeat(5 - Math.round(avgRating));
-            
-            document.getElementById('road-stars').textContent = stars;
-            document.getElementById('road-rating').textContent = 
-                `${avgRating.toFixed(1)} / 5.0 (${totalRatings} ${totalRatings === 1 ? 'rating' : 'ratings'})`;
         }
 
         // Initialize Street View
@@ -265,68 +254,23 @@
 
         // Load ratings
         async function loadRatings(segmentId) {
+            resetRatingsSection(ratingElements);
             try {
                 const { ratings = [] } = await api.getRatings(segmentId);
-                
-                document.getElementById('ratings-loading').classList.add('hidden');
-                
-                if (ratings.length === 0) {
-                    document.getElementById('ratings-empty').classList.remove('hidden');
-                } else {
-                    displayRatings(ratings);
-                }
-                
+                renderRatingsSection(ratingElements, ratings);
             } catch (error) {
                 console.error('Failed to load ratings:', error);
-                document.getElementById('ratings-loading').classList.add('hidden');
+                renderRatingsSection(ratingElements, [], { emptyMessage: 'Unable to load ratings right now.' });
             }
-        }
-
-        // Display ratings list
-        function displayRatings(ratings) {
-            const container = document.getElementById('ratings-list');
-            container.classList.remove('hidden');
-            
-            container.innerHTML = ratings.map(rating => {
-                const stars = '★'.repeat(rating.rating) + '☆'.repeat(5 - rating.rating);
-                const date = new Date(rating.created_at).toLocaleDateString();
-                
-                return `
-                    <div class="border border-gray-200 rounded-lg p-4">
-                        <div class="flex items-center justify-between mb-2">
-                            <div class="text-yellow-500 text-xl">${stars}</div>
-                            <span class="text-sm text-gray-500">${date}</span>
-                        </div>
-                        <p class="text-gray-700">${renderComment(rating.comment)}</p>
-                        <p class="text-sm text-gray-500 mt-2">By: ${rating.user_id}</p>
-                    </div>
-                `;
-            }).join('');
         }
 
         // Setup rating form
         function setupRatingForm() {
-            const stars = document.querySelectorAll('.rating-star');
-            const form = document.getElementById('rating-form');
-            const commentField = document.getElementById('comment');
-            const charCount = document.getElementById('char-count');
-
-            // Star rating interaction
-            stars.forEach(star => {
-                star.addEventListener('click', () => {
-                    selectedRating = parseInt(star.dataset.value);
-                    document.getElementById('rating-value').value = selectedRating;
-                    updateStars(selectedRating);
-                });
-
-                star.addEventListener('mouseenter', () => {
-                    const value = parseInt(star.dataset.value);
-                    updateStars(value);
-                });
-            });
-
-            document.getElementById('star-rating').addEventListener('mouseleave', () => {
-                updateStars(selectedRating);
+            starRatingController = createStarRating(document.querySelectorAll('.rating-star'), {
+                onChange: (value) => {
+                    selectedRating = value;
+                    ratingValueInput.value = value || '';
+                },
             });
 
             // Character counter
@@ -335,26 +279,15 @@
             });
 
             // Form submission
-            form.addEventListener('submit', handleFormSubmit);
-        }
-
-        // Update star display
-        function updateStars(rating) {
-            const stars = document.querySelectorAll('.rating-star');
-            stars.forEach((star, index) => {
-                if (index < rating) {
-                    star.classList.add('selected');
-                } else {
-                    star.classList.remove('selected');
-                }
-            });
+            ratingForm.addEventListener('submit', handleFormSubmit);
         }
 
         // Handle form submission
         async function handleFormSubmit(e) {
             e.preventDefault();
 
-            if (selectedRating === 0) {
+            const ratingToSubmit = starRatingController?.getValue() ?? 0;
+            if (ratingToSubmit === 0) {
                 showFormError('Please select a rating');
                 return;
             }
@@ -365,7 +298,7 @@
                 return;
             }
 
-            const comment = document.getElementById('comment').value.trim();
+            const comment = commentField.value.trim();
 
             submitBtn.disabled = true;
             submitBtn.textContent = 'Submitting...';
@@ -374,7 +307,7 @@
             try {
                 const ratingData = {
                     segmentId: currentSegmentId,
-                    rating: selectedRating,
+                    rating: ratingToSubmit,
                     comment: comment || undefined,
                 };
 
@@ -382,9 +315,10 @@
 
                 document.getElementById('form-success').classList.remove('hidden');
 
-                document.getElementById('rating-form').reset();
+                ratingForm.reset();
+                starRatingController?.reset();
                 selectedRating = 0;
-                updateStars(0);
+                charCount.textContent = '0';
 
                 await loadRoadDetails(currentSegmentId);
                 await loadRatings(currentSegmentId);

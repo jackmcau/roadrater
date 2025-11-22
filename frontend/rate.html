@@ -3,82 +3,427 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RoadRater - Rate a Road</title>
-    <!-- Load Tailwind CSS -->
+    <title>RoadRater - Rapid Rating</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../style.css">
     <script defer src="./lib/navbar.js"></script>
+    <style>
+        #street-view {
+            width: 100%;
+            height: 400px;
+            border-radius: 0.5rem;
+        }
+        .rating-star {
+            font-size: 2rem;
+            cursor: pointer;
+            color: #d1d5db;
+            transition: color 0.2s;
+        }
+        .rating-star.selected,
+        .rating-star:hover {
+            color: #fbbf24;
+        }
+    </style>
 </head>
-
 <body class="bg-gray-50 min-h-screen flex flex-col" data-active-nav="rate">
-
     <div data-component="navbar"></div>
 
-    <!-- Main Content Area -->
-    <main class="flex-grow flex justify-center p-4">
-        <!-- Rating Container -->
-        <div class="w-full max-w-xl bg-white shadow-xl rounded-xl p-6 md:p-8 space-y-8 mt-6">
-            
-            <header class="text-center">
-                <h2 class="text-3xl font-extrabold text-indigo-700 tracking-tight">Rate this Road!</h2>
-            </header>
-
-            <!-- Road Visual Section (image placeholder) -->
-            <!-- Replace the `src` with your actual road image path when available. Using a responsive img so it crops to the same area. -->
-            <div class="w-full h-48 overflow-hidden rounded-lg border-4 border-gray-800 shadow-inner">
-                <img
-                    src="image here"
-                    alt="Road image"
-                    class="w-full h-full object-cover"
-                />
-            </div>
-
-            <!-- Road Name Display (read-only bar) -->
-            <div class="space-y-2">
-                <label for="road-name" class="text-sm font-medium text-gray-700 block">Current Road/Address</label>
-                <!-- Replace the editable textbox with a non-editable bar that shows the street name. 
-                     If no name is available, the placeholder text appears. -->
-                <div id="road-name" class="road-name-bar" role="status" aria-live="polite">
-                    <span class="road-name-placeholder">No address provided</span>
+    <main class="flex-grow p-4 md:p-8">
+        <div class="max-w-5xl mx-auto">
+            <div id="loading" class="flex items-center justify-center h-96">
+                <div class="text-center">
+                    <div class="loading-spinner mx-auto mb-4"></div>
+                    <p class="text-gray-600">Loading your next road...</p>
                 </div>
             </div>
 
-            <!-- Star Rating Component -->
-            <div class="flex flex-col items-center space-y-4">
-                <p class="text-lg font-semibold text-gray-800">Your Rating:</p>
-                <div class="rating" role="radiogroup" aria-label="Road Quality Rating">
-                    <!-- 5 Stars (Reverse order for CSS trick) -->
-                    <input type="radio" id="star5" name="rating" value="5" />
-                    <label for="star5" title="Excellent (5 stars)">★</label>
-                    
-                    <input type="radio" id="star4" name="rating" value="4" />
-                    <label for="star4" title="Good (4 stars)">★</label>
-                    
-                    <input type="radio" id="star3" name="rating" value="3" />
-                    <label for="star3" title="Average (3 stars)">★</label>
-                    
-                    <input type="radio" id="star2" name="rating" value="2" />
-                    <label for="star2" title="Poor (2 stars)">★</label>
-                    
-                    <input type="radio" id="star1" name="rating" value="1" />
-                    <label for="star1" title="Terrible (1 star)">★</label>
+            <div id="error" class="hidden bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+                <p class="text-red-600 font-semibold mb-2">Failed to load a road</p>
+                <p class="text-gray-600" id="error-message"></p>
+                <div class="mt-4 flex flex-wrap justify-center gap-3">
+                    <button id="retry-load-btn" class="px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition">Try Again</button>
+                    <a href="map-browse.html" class="px-4 py-2 rounded-lg border border-red-300 text-red-700 font-semibold hover:bg-red-100 transition">Browse Map</a>
                 </div>
             </div>
 
-            <!-- Action Button (Form Submission Placeholder) -->
-            <div class="pt-4">
-                <button 
-                    type="submit" 
-                    form="rating-form" 
-                    class="w-full py-4 text-xl font-bold bg-green-600 text-white rounded-xl shadow-lg hover:bg-green-700 active:bg-green-800 transition duration-150 transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-green-300"
-                >
-                    SUBMIT RATING / NEXT ROAD
-                </button>
-            </div>
+            <div id="rate-content" class="hidden space-y-6">
+                <div class="bg-white shadow-xl rounded-xl p-6">
+                    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                            <p id="cycle-status" class="text-xs uppercase tracking-wide text-indigo-500 font-semibold">Road 1 of 3</p>
+                            <h1 id="road-name" class="text-4xl font-extrabold text-indigo-700 mb-2"></h1>
+                            <div class="flex items-center space-x-4">
+                                <div id="road-stars" class="text-yellow-500 text-2xl"></div>
+                                <span id="road-rating" class="text-gray-600 text-lg"></span>
+                            </div>
+                            <p id="seed-note" class="text-sm text-gray-500 mt-3">Sampling from demo seed data.</p>
+                        </div>
+                        <div class="flex flex-wrap gap-3 sm:justify-end">
+                            <button id="skip-road-btn" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-100 transition">Skip Road</button>
+                            <button id="next-road-btn" class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition disabled:bg-indigo-300 disabled:cursor-not-allowed" disabled>Next Road</button>
+                        </div>
+                    </div>
+                </div>
 
+                <div class="bg-white shadow-xl rounded-xl p-4">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Street View</h2>
+                    <div id="street-view-container">
+                        <div id="street-view"></div>
+                    </div>
+                </div>
+
+                <div class="bg-white shadow-xl rounded-xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-2xl font-bold text-gray-800">Share your rating</h2>
+                        <p class="text-sm text-gray-500">Submit then tap Next · or Skip anytime</p>
+                    </div>
+                    <div id="login-warning" class="hidden mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-yellow-800">
+                        Please <a href="login.html" class="font-semibold underline">log in</a> to rate roads.
+                    </div>
+                    <form id="rating-form" class="space-y-4">
+                        <div>
+                            <label class="block text-gray-700 font-semibold mb-2">Your Rating:</label>
+                            <div id="star-rating" class="flex space-x-2">
+                                <span class="rating-star" data-value="1">★</span>
+                                <span class="rating-star" data-value="2">★</span>
+                                <span class="rating-star" data-value="3">★</span>
+                                <span class="rating-star" data-value="4">★</span>
+                                <span class="rating-star" data-value="5">★</span>
+                            </div>
+                            <input type="hidden" id="rating-value" name="rating" required>
+                        </div>
+
+                        <div>
+                            <label for="comment" class="block text-gray-700 font-semibold mb-2">Comment (optional)</label>
+                            <textarea id="comment" name="comment" rows="4" maxlength="500" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="Share your experience with this road..."></textarea>
+                            <p class="text-sm text-gray-500 mt-1"><span id="char-count">0</span>/500 characters</p>
+                        </div>
+
+                        <button type="submit" id="submit-btn" class="w-full py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed">Submit Rating</button>
+                    </form>
+
+                    <div class="text-sm text-gray-500 mt-3">After submitting, use <span class="font-semibold">Next Road</span> to keep the momentum or <span class="font-semibold">Skip Road</span> if it isn't a fit.</div>
+
+                    <div id="form-success" class="hidden mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <p class="text-green-700 font-semibold">Rating submitted! Tap Next Road to continue.</p>
+                    </div>
+
+                    <div id="form-error" class="hidden mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <p class="text-red-700 font-semibold" id="form-error-message"></p>
+                    </div>
+                </div>
+
+                <div class="bg-white shadow-xl rounded-xl p-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Community Ratings</h2>
+                    <div id="ratings-loading" class="flex justify-center py-8">
+                        <div class="loading-spinner"></div>
+                    </div>
+                    <div id="ratings-list" class="hidden space-y-4"></div>
+                    <div id="ratings-empty" class="hidden text-center py-8 text-gray-500">No ratings yet. Be the first to rate this road!</div>
+                </div>
+            </div>
         </div>
     </main>
 
+    <script type="module">
+        import { api, ApiError, authStore } from './lib/api.js';
+        import { loadGoogleMapsAPI, initStreetView } from './lib/maps.js';
+        import { updateRoadHeader, resetRatingsSection, renderRatingsSection, createStarRating } from './lib/roadUi.js';
+
+        const SEED_SEGMENT_IDS = [1, 2, 3];
+
+        const state = {
+            order: shuffle([...SEED_SEGMENT_IDS]),
+            position: 0,
+            selectedRating: 0,
+            mapsReady: false,
+            currentRoad: null,
+            hasSubmittedCurrent: false,
+        };
+
+        const elements = {
+            loading: document.getElementById('loading'),
+            error: document.getElementById('error'),
+            errorMessage: document.getElementById('error-message'),
+            retryButton: document.getElementById('retry-load-btn'),
+            rateContent: document.getElementById('rate-content'),
+            cycleStatus: document.getElementById('cycle-status'),
+            roadName: document.getElementById('road-name'),
+            roadStars: document.getElementById('road-stars'),
+            roadRating: document.getElementById('road-rating'),
+            seedNote: document.getElementById('seed-note'),
+            streetView: document.getElementById('street-view'),
+            ratingsLoading: document.getElementById('ratings-loading'),
+            ratingsList: document.getElementById('ratings-list'),
+            ratingsEmpty: document.getElementById('ratings-empty'),
+            ratingForm: document.getElementById('rating-form'),
+            ratingInput: document.getElementById('rating-value'),
+            commentField: document.getElementById('comment'),
+            charCount: document.getElementById('char-count'),
+            loginWarning: document.getElementById('login-warning'),
+            submitBtn: document.getElementById('submit-btn'),
+            formSuccess: document.getElementById('form-success'),
+            formError: document.getElementById('form-error'),
+            formErrorMessage: document.getElementById('form-error-message'),
+            skipButton: document.getElementById('skip-road-btn'),
+            nextButton: document.getElementById('next-road-btn'),
+        };
+
+        const ratingsSection = {
+            loadingEl: elements.ratingsLoading,
+            emptyEl: elements.ratingsEmpty,
+            listEl: elements.ratingsList,
+        };
+
+        const roadHeaderElements = {
+            nameEl: elements.roadName,
+            starsEl: elements.roadStars,
+            summaryEl: elements.roadRating,
+        };
+
+        let starRatingController = null;
+
+        function shuffle(list) {
+            return list
+                .map((value) => ({ value, sort: Math.random() }))
+                .sort((a, b) => a.sort - b.sort)
+                .map(({ value }) => value);
+        }
+
+        function getCurrentSegmentId() {
+            if (!state.order.length) {
+                state.order = shuffle([...SEED_SEGMENT_IDS]);
+                state.position = 0;
+            }
+            return state.order[state.position];
+        }
+
+        function advanceQueue() {
+            state.position += 1;
+            if (state.position >= state.order.length) {
+                state.order = shuffle([...SEED_SEGMENT_IDS]);
+                state.position = 0;
+            }
+        }
+
+        function showLoadingView() {
+            elements.loading.classList.remove('hidden');
+            elements.rateContent.classList.add('hidden');
+            elements.error.classList.add('hidden');
+        }
+
+        function showContentView() {
+            elements.loading.classList.add('hidden');
+            elements.error.classList.add('hidden');
+            elements.rateContent.classList.remove('hidden');
+        }
+
+        function showError(message) {
+            elements.loading.classList.add('hidden');
+            elements.rateContent.classList.add('hidden');
+            elements.error.classList.remove('hidden');
+            elements.errorMessage.textContent = message;
+        }
+
+        function updateCycleStatus(segmentId) {
+            const total = state.order.length || SEED_SEGMENT_IDS.length;
+            const displayIndex = state.position + 1;
+            elements.cycleStatus.textContent = `Road ${displayIndex} of ${total}`;
+            elements.seedNote.textContent = `Sampling seeded test roads · Segment #${segmentId}`;
+        }
+
+        async function ensureMapsReady() {
+            if (state.mapsReady) return;
+            await loadGoogleMapsAPI();
+            state.mapsReady = true;
+        }
+
+        async function loadCurrentRoad() {
+            showLoadingView();
+            updateControlStates({ loading: true });
+            hideFormMessages();
+            resetRatingForm();
+            resetRatingsSection(ratingsSection);
+
+            try {
+                const segmentId = getCurrentSegmentId();
+                updateCycleStatus(segmentId);
+                const { road } = await api.getRoad(segmentId);
+                state.currentRoad = road;
+                updateRoadHeader(road, roadHeaderElements);
+                await ensureMapsReady();
+                initializeStreetView();
+                await loadRatings(segmentId);
+                showContentView();
+                updateControlStates({ loading: false });
+            } catch (error) {
+                console.error('Failed to load rate view:', error);
+                const message = error instanceof ApiError ? error.message : 'Failed to load road details';
+                showError(message);
+                updateControlStates({ loading: true });
+            }
+        }
+
+        function initializeStreetView() {
+            const container = elements.streetView;
+            if (!container) return;
+            if (!state.currentRoad || !state.currentRoad.lat || !state.currentRoad.lng) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">Street View not available for this location</p>';
+                return;
+            }
+            initStreetView(
+                container,
+                parseFloat(state.currentRoad.lat),
+                parseFloat(state.currentRoad.lng)
+            );
+        }
+
+        async function loadRatings(segmentId) {
+            resetRatingsSection(ratingsSection);
+            try {
+                const { ratings = [] } = await api.getRatings(segmentId);
+                renderRatingsSection(ratingsSection, ratings);
+            } catch (error) {
+                console.error('Failed to load ratings:', error);
+                renderRatingsSection(ratingsSection, [], { emptyMessage: 'Unable to load ratings right now.' });
+            }
+        }
+
+        function setupRatingForm() {
+            starRatingController = createStarRating(document.querySelectorAll('.rating-star'), {
+                onChange: (value) => {
+                    state.selectedRating = value;
+                    elements.ratingInput.value = value || '';
+                },
+            });
+
+            elements.commentField.addEventListener('input', (event) => {
+                elements.charCount.textContent = event.target.value.length;
+            });
+
+            elements.ratingForm.addEventListener('submit', handleFormSubmit);
+        }
+
+        function resetRatingForm() {
+            elements.ratingForm.reset();
+            starRatingController?.reset();
+            state.selectedRating = 0;
+            elements.ratingInput.value = '';
+            elements.charCount.textContent = '0';
+            state.hasSubmittedCurrent = false;
+            updateControlStates();
+        }
+
+        async function handleFormSubmit(event) {
+            event.preventDefault();
+
+            const ratingValue = starRatingController?.getValue() ?? 0;
+            if (ratingValue === 0) {
+                showFormError('Please select a rating');
+                return;
+            }
+
+            if (!authStore.getToken()) {
+                updateAuthState();
+                showFormError('Please log in to submit a rating.');
+                return;
+            }
+
+            const comment = elements.commentField.value.trim();
+            elements.submitBtn.disabled = true;
+            elements.submitBtn.textContent = 'Submitting...';
+            hideFormMessages();
+
+            try {
+                await api.submitRating({
+                    segmentId: getCurrentSegmentId(),
+                    rating: ratingValue,
+                    comment: comment || undefined,
+                });
+
+                state.hasSubmittedCurrent = true;
+                updateControlStates();
+                elements.formSuccess.classList.remove('hidden');
+            } catch (error) {
+                const message = error instanceof ApiError ? error.message : 'Failed to submit rating';
+                showFormError(message);
+            } finally {
+                elements.submitBtn.disabled = false;
+                elements.submitBtn.textContent = 'Submit Rating';
+            }
+        }
+
+        function updateControlStates({ loading = false } = {}) {
+            elements.skipButton.disabled = loading;
+            elements.nextButton.disabled = loading || !state.hasSubmittedCurrent;
+        }
+
+        function handleNextRoad() {
+            if (!state.hasSubmittedCurrent) {
+                showFormError('Submit a rating first or use Skip to move on.');
+                return;
+            }
+            advanceQueue();
+            loadCurrentRoad();
+        }
+
+        function handleSkipRoad() {
+            advanceQueue();
+            loadCurrentRoad();
+        }
+
+        function hideFormMessages() {
+            elements.formSuccess.classList.add('hidden');
+            elements.formError.classList.add('hidden');
+        }
+
+        function showFormError(message) {
+            elements.formErrorMessage.textContent = message;
+            elements.formError.classList.remove('hidden');
+        }
+
+        function updateAuthState() {
+            if (!elements.loginWarning || !elements.submitBtn) return;
+            if (authStore.getToken()) {
+                elements.loginWarning.classList.add('hidden');
+                elements.submitBtn.disabled = false;
+            } else {
+                elements.loginWarning.classList.remove('hidden');
+                elements.submitBtn.disabled = true;
+            }
+        }
+
+        function initControls() {
+            elements.skipButton.addEventListener('click', handleSkipRoad);
+            elements.nextButton.addEventListener('click', handleNextRoad);
+            elements.retryButton.addEventListener('click', () => {
+                elements.error.classList.add('hidden');
+                loadCurrentRoad();
+            });
+        }
+
+        function registerGlobalListeners() {
+            window.addEventListener('storage', (event) => {
+                if (event.key === 'token') {
+                    updateAuthState();
+                }
+            });
+            window.addEventListener('roadrater:unauthorized', () => {
+                updateAuthState();
+                showFormError('Session expired. Please log in again.');
+            });
+        }
+
+        function init() {
+            setupRatingForm();
+            initControls();
+            updateAuthState();
+            registerGlobalListeners();
+            loadCurrentRoad();
+        }
+
+        init();
+    </script>
 </body>
 </html>
