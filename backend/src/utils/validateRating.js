@@ -9,14 +9,14 @@ export const validateRating = (data) => {
   // Validate segmentId
   if (!data.segmentId) {
     errors.push('segmentId is required');
-  } else if (!Number.isInteger(Number(data.segmentId)) || Number(data.segmentId) <= 0) {
+  } else if (!Number.isInteger(data.segmentId) || data.segmentId <= 0) {
     errors.push('segmentId must be a positive integer');
   }
   
   // Validate rating
   if (data.rating === undefined || data.rating === null) {
     errors.push('rating is required');
-  } else if (!Number.isInteger(Number(data.rating))) {
+  } else if (!Number.isInteger(data.rating)) {
     errors.push('rating must be an integer');
   } else if (data.rating < 1 || data.rating > 5) {
     errors.push('rating must be between 1 and 5');
@@ -32,9 +32,11 @@ export const validateRating = (data) => {
     errors.push('comment must be less than 500 characters');
   }
   
-  // Validate userId (optional but must be string if provided)
-  if (data.userId !== undefined && data.userId !== null && typeof data.userId !== 'string') {
-    errors.push('userId must be a string');
+  // Validate userId (required for authenticated requests)
+  if (data.userId === undefined || data.userId === null) {
+    errors.push('userId is required');
+  } else if (!Number.isInteger(data.userId) || data.userId <= 0) {
+    errors.push('userId must be a positive integer');
   }
   
   return errors;

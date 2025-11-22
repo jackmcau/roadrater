@@ -1,12 +1,20 @@
 import express from 'express';
 import { query } from '../db/connect.js';
 import { notFound, badRequest } from '../utils/httpError.js';
+import { sendSuccess } from '../utils/response.js';
 
 const router = express.Router();
 
 // GET /roads - Get all road segments with average ratings
 router.get('/', async (req, res, next) => {
   try {
+  const rawPage = Number.parseInt(req.query.page ?? '1', 10);
+  const rawLimit = Number.parseInt(req.query.limit ?? '25', 10);
+  const page = Number.isNaN(rawPage) ? 1 : Math.max(rawPage, 1);
+  const pageSizeRaw = Number.isNaN(rawLimit) ? 25 : Math.max(rawLimit, 1);
+  const limit = Math.min(pageSizeRaw, 100);
+    const offset = (page - 1) * limit;
+
     const result = await query(`
       SELECT 
         rs.id,
@@ -14,17 +22,23 @@ router.get('/', async (req, res, next) => {
         rs.lat,
         rs.lng,
         rs.created_at,
-        COUNT(r.id) as rating_count,
+        COUNT(r.id)::int as rating_count,
         COALESCE(AVG(r.rating)::numeric(10,2), 0) as average_rating
       FROM road_segments rs
       LEFT JOIN ratings r ON rs.id = r.segment_id
       GROUP BY rs.id, rs.name, rs.lat, rs.lng, rs.created_at
       ORDER BY rs.id
-    `);
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
+
+    const totalResult = await query('SELECT COUNT(*)::int AS total FROM road_segments');
+    const total = totalResult.rows[0]?.total ?? 0;
     
-    res.json({
-      success: true,
+    sendSuccess(res, {
       count: result.rows.length,
+      page,
+      limit,
+      total,
       roads: result.rows
     });
   } catch (error) {
@@ -55,15 +69,14 @@ router.get('/:id', async (req, res, next) => {
     // Get aggregated rating data
     const ratingResult = await query(`
       SELECT 
-        COUNT(id) as total_ratings,
+        COUNT(id)::int as total_ratings,
         AVG(rating)::numeric(10,2) as average_rating,
         MAX(created_at) as last_rated
       FROM ratings
       WHERE segment_id = $1
     `, [id]);
     
-    res.json({
-      success: true,
+    sendSuccess(res, {
       road: {
         ...roadResult.rows[0],
         ...ratingResult.rows[0]

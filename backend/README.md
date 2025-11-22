@@ -10,10 +10,12 @@ Express API server for RoadRater application with PostgreSQL database integratio
    ```
 
 2. **Configure environment:**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your database credentials if needed
-   ```
+  ```bash
+  cp .env.example .env
+  # Edit .env with your database credentials if needed
+  ```
+  This same `backend/.env` file is mounted by `docker-compose`, so the Postgres
+  container and the API always agree on credentials and secrets.
 
 3. **Database Setup:**
 
@@ -22,8 +24,8 @@ Express API server for RoadRater application with PostgreSQL database integratio
    # Create database (if it doesn't exist)
    createdb roadrater
    
-   # Run schema v2 (creates tables with proper structure)
-   psql -d roadrater -f db/schema_v2.sql
+  # Apply schema (creates tables with proper structure)
+  psql -d roadrater -f db/schema.sql
    
    # Seed database with sample data
    psql -d roadrater -f db/seed.sql
@@ -31,14 +33,14 @@ Express API server for RoadRater application with PostgreSQL database integratio
    
    **Migration from v1 to v2:**
    ```bash
-   # This will drop and recreate tables with new schema
-   psql -d roadrater -f db/schema_v2.sql
+  # This will drop and recreate tables with new schema
+  psql -d roadrater -f db/schema.sql
    psql -d roadrater -f db/seed.sql
    ```
    
    **Using specific PostgreSQL user:**
    ```bash
-   psql -U postgres -d roadrater -f db/schema_v2.sql
+  psql -U postgres -d roadrater -f db/schema.sql
    psql -U postgres -d roadrater -f db/seed.sql
    ```
 
@@ -46,6 +48,11 @@ Express API server for RoadRater application with PostgreSQL database integratio
    ```bash
    npm run dev
    ```
+
+5. **Execute automated tests:**
+  ```bash
+  npm test
+  ```
 
 Server runs on `http://localhost:3001` by default.
 
@@ -55,9 +62,18 @@ Server runs on `http://localhost:3001` by default.
 - **GET** `/health`
   - Response: `{ "ok": true, "timestamp": "...", "service": "roadrater-backend" }`
 
+### Auth
+- **POST** `/auth/register`
+  - Registers a new account. Usernames must be alphanumeric and at least 8 characters.
+- **POST** `/auth/login`
+  - Returns a JWT access token on successful authentication.
+  - Response: `{ "success": true, "data": { "token": "..." } }`
+- **GET** `/auth/me`
+  - Requires `Authorization: Bearer <token>` header and returns the authenticated user profile.
+
 ### Roads
 - **GET** `/roads`
-  - Get all road segments with aggregated ratings
+  - Get road segments with aggregated ratings (supports `?page=` and `?limit=` params; default 25 per page, max 100)
   - Response:
     ```json
     {
@@ -96,12 +112,11 @@ Server runs on `http://localhost:3001` by default.
 
 ### Ratings
 - **POST** `/ratings`
-  - Create a new rating for a road segment
+  - Create a new rating for a road segment (requires `Authorization: Bearer <token>` header)
   - Body:
     ```json
     {
       "segmentId": 1,
-      "userId": "user123",
       "rating": 5,
       "comment": "Excellent road condition!"
     }
@@ -109,8 +124,8 @@ Server runs on `http://localhost:3001` by default.
   - Fields:
     - `segmentId` (required): Integer, ID of the road segment
     - `rating` (required): Integer 1-5
-    - `userId` (optional): String, user identifier (defaults to "anonymous")
     - `comment` (optional): String, max 500 characters
+    - `userId` is derived from the authenticated token
   - Response:
     ```json
     {
@@ -139,7 +154,7 @@ Server runs on `http://localhost:3001` by default.
           "id": 1,
           "rating": 5,
           "comment": "Great!",
-          "user_id": "user123",
+          "user_id": 7,
           "created_at": "2025-11-07T..."
         }
       ]
@@ -164,9 +179,9 @@ curl http://localhost:3001/roads/1
 ```bash
 curl -X POST http://localhost:3001/ratings \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
   -d '{
     "segmentId": 1,
-    "userId": "test-user",
     "rating": 5,
     "comment": "Smooth and well-maintained road!"
   }'
@@ -186,7 +201,10 @@ const roads = await fetch('http://localhost:3001/roads').then(r => r.json());
 // Create a rating
 const newRating = await fetch('http://localhost:3001/ratings', {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`
+  },
   body: JSON.stringify({
     segmentId: 1,
     rating: 5,
@@ -212,19 +230,25 @@ const ratings = await fetch('http://localhost:3001/ratings/1').then(r => r.json(
 **ratings**
 - `id` - Serial primary key
 - `segment_id` - Integer, foreign key to road_segments
-- `user_id` - Text, user identifier
+- `user_id` - Integer, foreign key to users (nullable for historic data)
 - `rating` - Integer (1-5)
 - `comment` - Text, optional
 - `created_at` - Timestamp
 
-See `db/schema_v2.sql` for full schema with indexes and constraints.
+**users**
+- `id` - Serial primary key
+- `username` - Unique alphanumeric identifier
+- `password` - Bcrypt hashed password
+- `created_at` - Timestamp
+
+See `db/schema.sql` for the canonical schema with indexes and constraints.
 
 ## Project Structure
 
 ```
 backend/
 ├── db/
-│   ├── schema_v2.sql       # Database schema
+│   ├── schema.sql          # Database schema
 │   └── seed.sql            # Sample data
 ├── src/
 │   ├── db/
@@ -248,6 +272,7 @@ The API uses consistent error responses:
 **400 Bad Request:**
 ```json
 {
+  "success": false,
   "error": "Validation failed",
   "details": ["rating must be between 1 and 5"]
 }
@@ -256,6 +281,7 @@ The API uses consistent error responses:
 **404 Not Found:**
 ```json
 {
+  "success": false,
   "error": "Road segment not found"
 }
 ```
@@ -263,6 +289,7 @@ The API uses consistent error responses:
 **500 Internal Server Error:**
 ```json
 {
+  "success": false,
   "error": "Internal server error"
 }
 ```
@@ -272,13 +299,18 @@ The API uses consistent error responses:
 - **Node.js** + **Express** - Web framework
 - **PostgreSQL** - Database (via `pg` driver)
 - **CORS** - Cross-origin resource sharing
-- **dotenv** - Environment configuration
+- **dotenv** / **zod** - Environment configuration + validation
+- **morgan** - HTTP request logging
 - **nodemon** - Development auto-reload
+- **Vitest** + **Supertest** - Test harness
 
 ## Environment Variables
 
 See `.env.example` for configuration options:
 - `PORT` - Server port (default: 3001)
-- `DATABASE_URL` - PostgreSQL connection string
-- `CORS_ORIGIN` - Allowed CORS origin (default: http://localhost:3000)
+- `CORS_ORIGIN` - Allowed CORS origin(s) (comma separated, default: http://localhost:3000)
+- `DB_HOST` / `DB_PORT` - Database host & port (defaults match docker-compose service `db`)
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` - Credentials passed to PostgreSQL
+- `DATABASE_URL` - Optional full connection string overriding the discrete DB fields
+- `JWT_SECRET` - Secret used to sign auth tokens
 - `NODE_ENV` - Environment (development/production)

@@ -4,6 +4,9 @@ import jwt from 'jsonwebtoken';
 import pool from '../db/connect.js';
 import { HttpError } from '../utils/httpError.js';
 import { validateUsername, validatePassword } from '../utils/validateUser.js';
+import { sendCreated, sendSuccess, sendError } from '../utils/response.js';
+import config from '../config/env.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -11,19 +14,10 @@ const normalizeUsername = (value) => (typeof value === 'string' ? value.trim() :
 
 const isDbMissingTableError = (err) => err?.code === '42P01';
 
-const handleMissingJwtSecret = (next) => {
-  if (!process.env.JWT_SECRET) {
-    console.error('[auth] JWT_SECRET is not configured');
-    next(new HttpError(500, 'Authentication service misconfigured'));
-    return true;
-  }
-  return false;
-};
-
 // Register a new user
 router.post('/register', async (req, res, next) => {
   const { username: rawUsername, password } = req.body || {};
-  const username = normalizedUsername(rawUsername);
+  const username = normalizeUsername(rawUsername);
 
   if (!username || !password) {
     return next(new HttpError(400, 'Username and password are required'));
@@ -32,11 +26,11 @@ router.post('/register', async (req, res, next) => {
   // Use validators and return structured JSON error responses
   const usernameErr = validateUsername(username);
   if (usernameErr) {
-    return res.status(400).json({ error: usernameErr, field: 'username' });
+    return sendError(res, usernameErr, 400, { field: 'username' });
   }
   const passwordErr = validatePassword(password);
   if (passwordErr) {
-    return res.status(400).json({ error: passwordErr, field: 'password' });
+    return sendError(res, passwordErr, 400, { field: 'password' });
   }
 
   try {
@@ -45,7 +39,7 @@ router.post('/register', async (req, res, next) => {
       'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING *',
       [username, hashedPassword]
     );
-    res.status(201).json({
+    sendCreated(res, {
       id: newUser.rows[0].id,
       username: newUser.rows[0].username,
     });
@@ -82,21 +76,30 @@ router.post('/login', async (req, res, next) => {
       return next(new HttpError(401, 'Invalid credentials'));
     }
 
-    if (handleMissingJwtSecret(next)) {
-      return;
-    }
-
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ userId: user.id }, config.jwtSecret, {
       expiresIn: '1h',
     });
 
-    res.json({ token });
+    sendSuccess(res, { token });
   } catch (err) {
     console.error('[auth] Error during login:', err);
     if (isDbMissingTableError(err)) {
       return next(new HttpError(500, 'User table has not been initialized'));
     }
     next(new HttpError(500, 'Server error during login', err.message));
+  }
+});
+
+// Return current user profile
+router.get('/me', requireAuth, async (req, res, next) => {
+  try {
+    const result = await pool.query('SELECT id, username, created_at FROM users WHERE id = $1', [req.user.id]);
+    if (result.rowCount === 0) {
+      return next(new HttpError(404, 'User not found'));
+    }
+    sendSuccess(res, { user: result.rows[0] });
+  } catch (error) {
+    next(new HttpError(500, 'Failed to fetch user profile', error.message));
   }
 });
 

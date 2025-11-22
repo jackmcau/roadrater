@@ -1,3 +1,5 @@
+import { sendError } from './response.js';
+
 /**
  * HTTP Error factory for consistent error responses
  */
@@ -40,25 +42,16 @@ export const errorHandler = (err, req, res, next) => {
   
   // Handle HttpError instances
   if (err instanceof HttpError) {
-    return res.status(err.statusCode).json({
-      message: err.message,
-      details: err.details
-    });
+    return sendError(res, err.message, err.statusCode, err.details);
   }
   
   // Handle validation errors
   if (err.name === 'ValidationError') {
-    return res.status(400).json({
-      message: 'Validation Error',
-      details: err.errors
-    });
+    return sendError(res, 'Validation Error', 400, err.errors);
   }
   
   // Default to 500 Internal Server Error
-  res.status(500).json({
-    message: 'An unexpected error occurred',
-    details: err.message
-  });
+  sendError(res, 'An unexpected error occurred', 500, err.message);
 };
 
 export default {
