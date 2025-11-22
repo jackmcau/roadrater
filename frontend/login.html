@@ -67,10 +67,16 @@
             
         </div>
     </main>
-    <script>
+    <script type="module">
+        import { api, ApiError } from './lib/api.js';
+
         const form = document.getElementById('login-form');
         const errorMessage = document.getElementById('error-message');
         const LOGIN_PROMPT_STORAGE_KEY = 'loginPromptMessage';
+
+        const redirectToHome = () => {
+            window.location.href = 'index.html';
+        };
 
         const showStoredPrompt = () => {
             const storedMessage = localStorage.getItem(LOGIN_PROMPT_STORAGE_KEY);
@@ -80,37 +86,37 @@
             localStorage.removeItem(LOGIN_PROMPT_STORAGE_KEY);
         };
 
+        const updateUsernameFromProfile = async () => {
+            try {
+                const profile = await api.me();
+                if (profile?.user?.username) {
+                    localStorage.setItem('username', profile.user.username);
+                }
+            } catch (err) {
+                console.warn('Failed to fetch profile after login', err);
+            }
+        };
+
         showStoredPrompt();
 
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
-            errorMessage.classList.add('hidden'); // Hide error message on new submission
+            errorMessage.classList.add('hidden');
 
-            const username = document.getElementById('username').value;
+            const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
 
             try {
-                const response = await fetch('/auth/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ username, password }),
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    localStorage.setItem('token', data.token);
-                    localStorage.setItem('username', username);
-                    window.location.href = '/'; // Redirect to home page
-                } else {
-                    const errorData = await response.json();
-                    errorMessage.textContent = `Login failed: ${errorData.message}`;
-                    errorMessage.classList.remove('hidden');
-                }
+                await api.login({ username, password });
+                await updateUsernameFromProfile();
+                redirectToHome();
             } catch (error) {
                 console.error('Error during login:', error);
-                errorMessage.textContent = 'An error occurred. Please try again.';
+                let message = 'An error occurred. Please try again.';
+                if (error instanceof ApiError) {
+                    message = error.message;
+                }
+                errorMessage.textContent = `Login failed: ${message}`;
                 errorMessage.classList.remove('hidden');
             }
         });

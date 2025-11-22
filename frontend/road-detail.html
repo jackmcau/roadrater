@@ -93,6 +93,9 @@
                 <!-- Rating Form -->
                 <div class="bg-white shadow-xl rounded-xl p-6">
                     <h2 class="text-2xl font-bold text-gray-800 mb-4">Rate This Road</h2>
+                    <div id="login-warning" class="hidden mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-yellow-800">
+                        Please <a href="login.html" class="font-semibold underline">log in</a> to submit a rating.
+                    </div>
                     <form id="rating-form" class="space-y-4">
                         <div>
                             <label class="block text-gray-700 font-semibold mb-2">Your Rating:</label>
@@ -160,12 +163,28 @@
     </main>
 
     <script type="module">
-        import { api } from './lib/api.js';
+        import { api, ApiError, authStore } from './lib/api.js';
         import { loadGoogleMapsAPI, initStreetView } from './lib/maps.js';
 
         let currentRoad = null;
         let currentSegmentId = null;
         let selectedRating = 0;
+        const submitBtn = document.getElementById('submit-btn');
+        const loginWarning = document.getElementById('login-warning');
+
+        const escapeHtml = (value = '') => String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
+        const renderComment = (comment) => {
+            if (!comment) {
+                return '<em class="text-gray-400">No comment</em>';
+            }
+            return escapeHtml(comment);
+        };
 
         // Get road ID from URL
         function getRoadId() {
@@ -205,9 +224,9 @@
         // Load road details from API
         async function loadRoadDetails(roadId) {
             try {
-                const response = await api.getRoad(roadId);
-                currentRoad = response.road;
-                currentSegmentId = parseInt(roadId);
+                const { road } = await api.getRoad(roadId);
+                currentRoad = road;
+                currentSegmentId = Number.parseInt(roadId, 10);
                 
                 displayRoadDetails(currentRoad);
                 
@@ -247,8 +266,7 @@
         // Load ratings
         async function loadRatings(segmentId) {
             try {
-                const response = await api.getRatings(segmentId);
-                const ratings = response.ratings || [];
+                const { ratings = [] } = await api.getRatings(segmentId);
                 
                 document.getElementById('ratings-loading').classList.add('hidden');
                 
@@ -279,7 +297,7 @@
                             <div class="text-yellow-500 text-xl">${stars}</div>
                             <span class="text-sm text-gray-500">${date}</span>
                         </div>
-                        <p class="text-gray-700">${rating.comment || '<em class="text-gray-400">No comment</em>'}</p>
+                        <p class="text-gray-700">${renderComment(rating.comment)}</p>
                         <p class="text-sm text-gray-500 mt-2">By: ${rating.user_id}</p>
                     </div>
                 `;
@@ -335,16 +353,20 @@
         // Handle form submission
         async function handleFormSubmit(e) {
             e.preventDefault();
-            
+
             if (selectedRating === 0) {
                 showFormError('Please select a rating');
                 return;
             }
 
-            const submitBtn = document.getElementById('submit-btn');
+            if (!authStore.getToken()) {
+                updateAuthState();
+                showFormError('Please log in to submit a rating.');
+                return;
+            }
+
             const comment = document.getElementById('comment').value.trim();
-            
-            // Disable form
+
             submitBtn.disabled = true;
             submitBtn.textContent = 'Submitting...';
             hideFormMessages();
@@ -354,33 +376,40 @@
                     segmentId: currentSegmentId,
                     rating: selectedRating,
                     comment: comment || undefined,
-                    userId: 'user_' + Date.now() // Placeholder user ID
                 };
 
                 await api.submitRating(ratingData);
-                
-                // Show success
+
                 document.getElementById('form-success').classList.remove('hidden');
-                
-                // Reset form
+
                 document.getElementById('rating-form').reset();
                 selectedRating = 0;
                 updateStars(0);
-                
-                // Reload ratings and road details
+
                 await loadRoadDetails(currentSegmentId);
                 await loadRatings(currentSegmentId);
-                
-                // Scroll to ratings
+
                 setTimeout(() => {
                     document.getElementById('ratings-list').scrollIntoView({ behavior: 'smooth' });
                 }, 1000);
-                
+
             } catch (error) {
-                showFormError(error.message);
+                const message = error instanceof ApiError ? error.message : 'Failed to submit rating';
+                showFormError(message);
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Submit Rating';
+            }
+        }
+
+        function updateAuthState() {
+            if (!loginWarning || !submitBtn) return;
+            if (authStore.getToken()) {
+                loginWarning.classList.add('hidden');
+                submitBtn.disabled = false;
+            } else {
+                loginWarning.classList.remove('hidden');
+                submitBtn.disabled = true;
             }
         }
 
@@ -403,6 +432,17 @@
             document.getElementById('form-success').classList.add('hidden');
             document.getElementById('form-error').classList.add('hidden');
         }
+
+        updateAuthState();
+        window.addEventListener('storage', (event) => {
+            if (event.key === 'token') {
+                updateAuthState();
+            }
+        });
+        window.addEventListener('roadrater:unauthorized', () => {
+            updateAuthState();
+            showFormError('Session expired. Please log in again.');
+        });
 
         // Start the application
         init();

@@ -59,7 +59,8 @@
 
             <!-- Roads List -->
             <div class="bg-white shadow-xl rounded-xl p-6">
-                <h2 class="text-2xl font-bold text-gray-800 mb-4">All Roads</h2>
+                <h2 class="text-2xl font-bold text-gray-800">All Roads</h2>
+                <p id="roads-meta" class="hidden text-sm text-gray-500 mb-4"></p>
                 <div id="roads-loading" class="flex justify-center py-8">
                     <div class="loading-spinner"></div>
                 </div>
@@ -77,7 +78,8 @@
         import { api } from './lib/api.js';
         import { loadGoogleMapsAPI, initMap, addRoadMarkers } from './lib/maps.js';
 
-        let roads = [];
+    let roads = [];
+    const roadsMeta = document.getElementById('roads-meta');
 
         // Initialize the application
         async function init() {
@@ -105,8 +107,10 @@
         // Load roads from API
         async function loadRoads() {
             try {
-                const response = await api.getRoads();
-                roads = response.roads || [];
+                const { roads: fetchedRoads = [], count = 0, total = 0 } = await api.getRoads();
+                roads = fetchedRoads;
+                roadsMeta.textContent = `Showing ${count} of ${total} road segments`;
+                roadsMeta.classList.remove('hidden');
                 
                 // Add markers to map
                 addRoadMarkers(roads, (road) => {
@@ -120,6 +124,7 @@
                 console.error('Failed to load roads:', error);
                 document.getElementById('roads-loading').classList.add('hidden');
                 document.getElementById('roads-error').classList.remove('hidden');
+                roadsMeta.classList.add('hidden');
             }
         }
 

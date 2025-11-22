@@ -9,6 +9,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../style.css">
     <script defer src="./lib/navbar.js"></script>
+    <style>
+        .loading-spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 
 <body class="bg-gray-50 min-h-screen flex flex-col" data-active-nav="leaderboard">
@@ -26,75 +40,75 @@
 
             <!-- Leaderboard Table/List -->
             <div id="leaderboard-container" class="space-y-4">
-                <!-- Header Row -->
                 <div class="flex items-center p-3 bg-gray-100 rounded-lg font-bold text-gray-800 text-lg shadow-sm">
                     <span class="w-1/6 text-center">#</span>
                     <span class="w-4/6">Road Name / Location</span>
                     <span class="w-1/6 text-right">Rating</span>
                 </div>
-
-                <!-- Leaderboard Items (Mock Data) -->
-                <!-- Item 1 (Gold, more prominent) -->
-                <div class="flex items-center p-2 bg-white border-2 border-yellow-400 rounded-lg shadow-md text-xl font-bold text-gray-900">
-                    <span class="w-1/6 text-center text-yellow-700">1</span>
-                    <span class="w-4/6">Road 1 Name / Location</span>
-                    <span class="w-1/6 text-right">Rating</span>
+                <div id="leaderboard-loading" class="flex justify-center py-6">
+                    <div class="loading-spinner"></div>
                 </div>
-                
-                <!-- Item 2 (Silver, more prominent) -->
-                <div class="flex items-center p-2 bg-white border-2 border-gray-600 rounded-lg shadow-sm text-xl font-semibold text-gray-800">
-                    <span class="w-1/6 text-center text-gray-700">2</span>
-                    <span class="w-4/6">Road 2 Name / Location</span>
-                    <span class="w-1/6 text-right">Rating</span>
-                </div>
-
-                <!-- Item 3 (Bronze, more prominent) -->
-                <div class="flex items-center p-2 bg-white rounded-lg shadow-sm text-xl font-semibold text-gray-800" style="border:2px solid #b87333;">
-                    <span class="w-1/6 text-center" style="color:#b87333; font-weight:700;">3</span>
-                    <span class="w-4/6">Road 3 Name / Location</span>
-                    <span class="w-1/6 text-right">Rating</span>
-                </div>
-
-                <!-- Item 4 -->
-                <div class="flex items-center p-2 bg-white border border-gray-200 rounded-lg shadow-sm text-lg font-semibold text-gray-800">
-                    <span class="w-1/6 text-center text-gray-700">4</span>
-                    <span class="w-4/6">Road 4 Name / Location</span>
-                    <span class="w-1/6 text-right">Rating</span>
-                </div>
-
-                <!-- Item 5 -->
-                <div class="flex items-center p-2 bg-white border border-gray-200 rounded-lg shadow-sm text-lg font-semibold text-gray-800">
-                    <span class="w-1/6 text-center text-gray-700">5</span>
-                    <span class="w-4/6">Road 5 Name / Location</span>
-                    <span class="w-1/6 text-right">Rating</span>
-                </div>
-
+                <div id="leaderboard-error" class="hidden text-center text-red-600 font-semibold py-4"></div>
+                <div id="leaderboard-rows" class="space-y-3"></div>
             </div>
             
         </div>
     </main>
 
-    <script>
-        async function getData() {
-            const res = await fetch("/top5");
-            const data = await res.json();
-            console.log("Received:", data);
-            return data;
-        }
+    <script type="module">
+        import { api, ApiError } from './lib/api.js';
 
-        async function main() {
-            const data = await getData();
+        const rowsContainer = document.getElementById('leaderboard-rows');
+        const loadingEl = document.getElementById('leaderboard-loading');
+        const errorEl = document.getElementById('leaderboard-error');
 
-            let cont = document.getElementById("leaderboard-container");
+        const tierStyles = [
+            'border-2 border-yellow-400 text-xl font-bold text-gray-900',
+            'border-2 border-gray-400 text-xl font-semibold text-gray-800',
+            'border-2 border-amber-600 text-xl font-semibold text-gray-800',
+        ];
 
-            for (let i = 0; i < data.roads.length; i++) {
-                let element = cont.children[i + 1];
-                element.children[1].innerHTML = data.roads[i].name;
-                element.children[2].innerHTML = data.roads[i].avg.toString().slice(0, 3);
+        const formatRating = (value) => Number.parseFloat(value ?? 0).toFixed(1);
+
+        const buildRow = (road, index) => {
+            const baseClass = 'flex items-center p-2 bg-white rounded-lg shadow-sm text-gray-800';
+            const highlight = tierStyles[index] || 'border border-gray-200 text-lg font-semibold';
+            return `
+                <div class="${baseClass} ${highlight}">
+                    <span class="w-1/6 text-center">${index + 1}</span>
+                    <span class="w-4/6">${road.name}</span>
+                    <span class="w-1/6 text-right">${formatRating(road.average_rating)}</span>
+                </div>
+            `;
+        };
+
+        const showError = (message) => {
+            errorEl.textContent = message;
+            errorEl.classList.remove('hidden');
+        };
+
+        const renderLeaderboard = (roads) => {
+            if (!roads.length) {
+                rowsContainer.innerHTML = '<p class="text-center text-gray-500 py-4">No ratings yet. Be the first to rate a road!</p>';
+                return;
             }
-        }
+            rowsContainer.innerHTML = roads.map((road, index) => buildRow(road, index)).join('');
+        };
 
-        main();
+        const loadLeaderboard = async () => {
+            try {
+                const { roads = [] } = await api.getTopRoads();
+                renderLeaderboard(roads);
+            } catch (error) {
+                console.error('Failed to load leaderboard:', error);
+                const message = error instanceof ApiError ? error.message : 'Failed to load leaderboard';
+                showError(message);
+            } finally {
+                loadingEl.classList.add('hidden');
+            }
+        };
+
+        loadLeaderboard();
     </script>
 </body>
 </html>
