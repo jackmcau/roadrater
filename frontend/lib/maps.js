@@ -3,32 +3,53 @@
  * Handles map initialization, markers, and user interaction
  */
 
-const BOULDER_CENTER = { lat: 40.0150, lng: -105.2705 };
-const GOOGLE_MAPS_API_KEY = 'YOUR_API_KEY_HERE'; // Replace with actual key
+const BOULDER_CENTER = { lat: 40.014986, lng: -105.270546 };
+const GOOGLE_MAPS_API_KEY = 'AIzaSyCI607tCmSCUhTJC6jZUmSJwDozv8crFDw';
 
 let map = null;
 let markers = [];
 let infoWindow = null;
+let loadingPromise = null;
 
 /**
  * Load Google Maps API script
+ * Only loads once - subsequent calls return the same promise
  * @returns {Promise<void>}
  */
 export function loadGoogleMapsAPI() {
-  return new Promise((resolve, reject) => {
-    if (window.google && window.google.maps) {
-      resolve();
-      return;
-    }
+  // Return existing promise if already loading or loaded
+  if (loadingPromise) {
+    return loadingPromise;
+  }
 
+  // Check if already loaded
+  if (window.google && window.google.maps) {
+    return Promise.resolve();
+  }
+
+  loadingPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
     script.async = true;
     script.defer = true;
-    script.onload = resolve;
-    script.onerror = reject;
+    
+    script.onload = () => {
+      if (window.google && window.google.maps) {
+        resolve();
+      } else {
+        reject(new Error('Google Maps API loaded but google.maps is not available'));
+      }
+    };
+    
+    script.onerror = () => {
+      loadingPromise = null; // Reset so it can be retried
+      reject(new Error('Failed to load Google Maps API. Please check your API key and internet connection.'));
+    };
+    
     document.head.appendChild(script);
   });
+
+  return loadingPromise;
 }
 
 /**
@@ -38,6 +59,10 @@ export function loadGoogleMapsAPI() {
  * @returns {google.maps.Map} The initialized map instance
  */
 export function initMap(mapElement, options = {}) {
+  if (!window.google || !window.google.maps) {
+    throw new Error('Google Maps API not loaded. Call loadGoogleMapsAPI() first.');
+  }
+
   const defaultOptions = {
     center: BOULDER_CENTER,
     zoom: 12,
@@ -45,6 +70,7 @@ export function initMap(mapElement, options = {}) {
     streetViewControl: true,
     mapTypeControl: true,
     fullscreenControl: true,
+    zoomControl: true,
   };
 
   map = new google.maps.Map(mapElement, { ...defaultOptions, ...options });
@@ -55,19 +81,42 @@ export function initMap(mapElement, options = {}) {
 
 /**
  * Add road markers to the map
- * @param {Array} roads - Array of road objects with lat, lng, name, etc.
+ * @param {Array} roads - Array of road objects with id, name, lat, lng, average_rating, rating_count
  * @param {Function} onMarkerClick - Callback when marker is clicked
  */
 export function addRoadMarkers(roads, onMarkerClick) {
+  if (!map) {
+    console.error('Map not initialized. Call initMap() first.');
+    return;
+  }
+
   // Clear existing markers
   clearMarkers();
 
+  const bounds = new google.maps.LatLngBounds();
+  let validMarkerCount = 0;
+
   roads.forEach(road => {
-    if (!road.lat || !road.lng) return;
+    // Skip roads without valid coordinates
+    if (!road.lat || !road.lng) {
+      console.warn(`Road "${road.name}" has no coordinates, skipping marker`);
+      return;
+    }
+
+    const position = { 
+      lat: parseFloat(road.lat), 
+      lng: parseFloat(road.lng) 
+    };
+
+    // Validate coordinates
+    if (isNaN(position.lat) || isNaN(position.lng)) {
+      console.warn(`Road "${road.name}" has invalid coordinates, skipping marker`);
+      return;
+    }
 
     const marker = new google.maps.Marker({
-      position: { lat: parseFloat(road.lat), lng: parseFloat(road.lng) },
-      map: map,
+      position,
+      map,
       title: road.name,
       animation: google.maps.Animation.DROP,
     });
@@ -78,13 +127,13 @@ export function addRoadMarkers(roads, onMarkerClick) {
     const stars = '★'.repeat(Math.round(avgRating)) + '☆'.repeat(5 - Math.round(avgRating));
 
     const content = `
-      <div class="p-3 max-w-xs">
-        <h3 class="font-bold text-lg text-indigo-700 mb-2">${road.name}</h3>
-        <div class="text-yellow-500 text-xl mb-1">${stars}</div>
-        <p class="text-gray-600 mb-2">Average: ${avgRating} / 5.0 (${ratingCount} ratings)</p>
+      <div style="padding: 12px; min-width: 200px; max-width: 300px;">
+        <h3 style="font-weight: bold; font-size: 1.125rem; color: #4338ca; margin-bottom: 8px;">${road.name}</h3>
+        <div style="color: #eab308; font-size: 1.25rem; margin-bottom: 4px;">${stars}</div>
+        <p style="color: #6b7280; margin-bottom: 8px;">Average: ${avgRating} / 5.0 (${ratingCount} ${ratingCount === 1 ? 'rating' : 'ratings'})</p>
         <a href="road-detail.html?id=${road.id}" 
-           class="inline-block bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition">
-          View Details
+           style="display: inline-block; background-color: #4f46e5; color: white; padding: 8px 16px; border-radius: 4px; text-decoration: none; font-weight: 500;">
+          View Details →
         </a>
       </div>
     `;
@@ -93,13 +142,28 @@ export function addRoadMarkers(roads, onMarkerClick) {
       infoWindow.setContent(content);
       infoWindow.open(map, marker);
       
-      if (onMarkerClick) {
+      // Call custom onClick handler if provided
+      if (onMarkerClick && typeof onMarkerClick === 'function') {
         onMarkerClick(road, marker);
       }
     });
 
     markers.push(marker);
+    bounds.extend(position);
+    validMarkerCount++;
   });
+
+  // Fit map to show all markers if we have any
+  if (validMarkerCount > 0) {
+    map.fitBounds(bounds);
+    
+    // Don't zoom in too much if there's only one marker
+    google.maps.event.addListenerOnce(map, 'bounds_changed', () => {
+      if (validMarkerCount === 1 && map.getZoom() > 15) {
+        map.setZoom(15);
+      }
+    });
+  }
 }
 
 /**

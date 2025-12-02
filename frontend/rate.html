@@ -240,6 +240,7 @@
         }
 
         async function loadCurrentRoad() {
+            console.log('[rate] Loading current road...');
             showLoadingView();
             updateControlStates({ loading: true });
             hideFormMessages();
@@ -248,17 +249,25 @@
 
             try {
                 const segmentId = getCurrentSegmentId();
+                console.log('[rate] Loading road with ID:', segmentId);
                 updateCycleStatus(segmentId);
-                const { road } = await api.getRoad(segmentId);
+                const response = await api.getRoad(segmentId);
+                console.log('[rate] API response:', response);
+                const { road } = response;
+                console.log('[rate] Road loaded:', road);
                 state.currentRoad = road;
                 updateRoadHeader(road, roadHeaderElements);
+                console.log('[rate] Ensuring Google Maps is ready...');
                 await ensureMapsReady();
+                console.log('[rate] Initializing Street View...');
                 initializeStreetView();
+                console.log('[rate] Loading ratings...');
                 await loadRatings(segmentId);
+                console.log('[rate] Showing content view');
                 showContentView();
                 updateControlStates({ loading: false });
             } catch (error) {
-                console.error('Failed to load rate view:', error);
+                console.error('[rate] Failed to load rate view:', error);
                 const message = error instanceof ApiError ? error.message : 'Failed to load road details';
                 showError(message);
                 updateControlStates({ loading: true });
@@ -416,10 +425,12 @@
         }
 
         function init() {
+            console.log('[rate] Initializing rate page...');
             setupRatingForm();
             initControls();
             updateAuthState();
             registerGlobalListeners();
+            console.log('[rate] Starting to load current road...');
             loadCurrentRoad();
         }
 

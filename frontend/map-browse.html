@@ -83,9 +83,16 @@
 
         // Initialize the application
         async function init() {
+            console.log('[map-browse] Starting initialization...');
+            
+            // Start loading roads immediately (don't wait for maps)
+            const roadsPromise = loadRoads();
+            
             try {
                 // Load Google Maps API
+                console.log('[map-browse] Loading Google Maps API...');
                 await loadGoogleMapsAPI();
+                console.log('[map-browse] Google Maps API loaded successfully');
                 
                 // Show map, hide loading
                 document.getElementById('map-loading').classList.add('hidden');
@@ -93,37 +100,58 @@
                 
                 // Initialize map
                 const mapElement = document.getElementById('map');
+                console.log('[map-browse] Initializing map...');
                 initMap(mapElement);
+                console.log('[map-browse] Map initialized');
                 
-                // Fetch and display roads
-                await loadRoads();
+                // Wait for roads to finish loading
+                await roadsPromise;
+                console.log('[map-browse] Initialization complete');
                 
             } catch (error) {
-                console.error('Initialization error:', error);
-                showMapError(error.message);
+                console.error('[map-browse] Map initialization error:', error);
+                showMapError(error.message || 'Failed to initialize map');
+                // Still wait for roads to load even if map fails
+                try {
+                    await roadsPromise;
+                } catch (roadsError) {
+                    console.error('[map-browse] Roads also failed to load:', roadsError);
+                }
             }
         }
 
         // Load roads from API
         async function loadRoads() {
+            console.log('[map-browse] Fetching roads from API...');
             try {
-                const { roads: fetchedRoads = [], count = 0, total = 0 } = await api.getRoads();
+                const response = await api.getRoads();
+                console.log('[map-browse] API response:', response);
+                const { roads: fetchedRoads = [], count = 0, total = 0 } = response;
                 roads = fetchedRoads;
+                console.log(`[map-browse] Loaded ${roads.length} roads`);
                 roadsMeta.textContent = `Showing ${count} of ${total} road segments`;
                 roadsMeta.classList.remove('hidden');
                 
-                // Add markers to map
-                addRoadMarkers(roads, (road) => {
-                    console.log('Road clicked:', road);
-                });
+                // Add markers to map (only if map is ready)
+                try {
+                    console.log('[map-browse] Adding markers to map...');
+                    addRoadMarkers(roads, (road) => {
+                        console.log('[map-browse] Road clicked:', road);
+                    });
+                } catch (markerError) {
+                    console.warn('[map-browse] Could not add markers to map:', markerError);
+                }
                 
-                // Display roads list
+                // Display roads list (this should always work)
+                console.log('[map-browse] Displaying roads list...');
                 displayRoadsList(roads);
                 
             } catch (error) {
-                console.error('Failed to load roads:', error);
+                console.error('[map-browse] Failed to load roads:', error);
                 document.getElementById('roads-loading').classList.add('hidden');
                 document.getElementById('roads-error').classList.remove('hidden');
+                const errorElement = document.getElementById('roads-error');
+                errorElement.textContent = 'Failed to load roads: ' + (error.message || 'Unknown error');
                 roadsMeta.classList.add('hidden');
             }
         }

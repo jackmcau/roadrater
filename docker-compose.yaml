@@ -10,8 +10,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    expose:
-      - '5432'
+    ports:
+      - '5432:5432'
     volumes:
       - group-project:/var/lib/postgresql/data
       - ./backend/db:/docker-entrypoint-initdb.d
