@@ -1,16 +1,16 @@
 import pg from 'pg';
-import config from '../config/env.js';
 
 const { Pool } = pg;
 
-const pool = config.database.url
-  ? new Pool({ connectionString: config.database.url })
+// Create database connection with environment variable fallbacks
+const pool = process.env.DATABASE_URL
+  ? new Pool({ connectionString: process.env.DATABASE_URL })
   : new Pool({
-      host: config.database.host,
-      port: config.database.port,
-      database: config.database.name,
-      user: config.database.user,
-      password: config.database.password,
+      host: process.env.POSTGRES_HOST || process.env.PGHOST || process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.POSTGRES_PORT || process.env.PGPORT || process.env.DB_PORT || '5432'),
+      database: process.env.POSTGRES_DB || process.env.PGDATABASE,
+      user: process.env.POSTGRES_USER || process.env.PGUSER,
+      password: process.env.POSTGRES_PASSWORD || process.env.PGPASSWORD,
     });
 
 // Test connection

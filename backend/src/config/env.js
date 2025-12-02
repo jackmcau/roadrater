@@ -8,12 +8,21 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3001),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
   JWT_SECRET: z.string().min(10, 'JWT_SECRET must be at least 10 characters'),
-  DB_HOST: z.string().default('db'),
-  DB_PORT: z.coerce.number().int().default(5432),
-  POSTGRES_DB: z.string(),
-  POSTGRES_USER: z.string(),
-  POSTGRES_PASSWORD: z.string(),
+  // Database connection - support multiple env var formats
+  POSTGRES_HOST: z.string().optional(),
+  PGHOST: z.string().optional(),
+  POSTGRES_PORT: z.coerce.number().int().optional(),
+  PGPORT: z.coerce.number().int().optional(),
+  POSTGRES_DB: z.string().optional(),
+  PGDATABASE: z.string().optional(),
+  POSTGRES_USER: z.string().optional(),
+  PGUSER: z.string().optional(),
+  POSTGRES_PASSWORD: z.string().optional(),
+  PGPASSWORD: z.string().optional(),
   DATABASE_URL: z.string().optional(),
+  // Legacy support
+  DB_HOST: z.string().optional(),
+  DB_PORT: z.coerce.number().int().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -39,11 +48,11 @@ export const config = {
   corsOrigins: parseOrigins(raw.CORS_ORIGIN),
   database: {
     url: raw.DATABASE_URL,
-    host: raw.DB_HOST,
-    port: raw.DB_PORT,
-    name: raw.POSTGRES_DB,
-    user: raw.POSTGRES_USER,
-    password: raw.POSTGRES_PASSWORD,
+    host: raw.POSTGRES_HOST || raw.PGHOST || raw.DB_HOST || 'localhost',
+    port: raw.POSTGRES_PORT || raw.PGPORT || raw.DB_PORT || 5432,
+    name: raw.POSTGRES_DB || raw.PGDATABASE,
+    user: raw.POSTGRES_USER || raw.PGUSER,
+    password: raw.POSTGRES_PASSWORD || raw.PGPASSWORD,
   },
 };
 
