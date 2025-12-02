@@ -1,17 +1,23 @@
 import pg from 'pg';
-
 const { Pool } = pg;
 
-// Create database connection with environment variable fallbacks
-const pool = process.env.DATABASE_URL
-  ? new Pool({ connectionString: process.env.DATABASE_URL })
-  : new Pool({
-      host: process.env.POSTGRES_HOST || process.env.PGHOST || process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.POSTGRES_PORT || process.env.PGPORT || process.env.DB_PORT || '5432'),
-      database: process.env.POSTGRES_DB || process.env.PGDATABASE,
-      user: process.env.POSTGRES_USER || process.env.PGUSER,
-      password: process.env.POSTGRES_PASSWORD || process.env.PGPASSWORD,
-    });
+const isProduction = process.env.NODE_ENV === 'production';
+
+const pool = new Pool({
+  host:
+    process.env.POSTGRES_HOST ||
+    process.env.PGHOST ||
+    'localhost',
+  port: Number(process.env.POSTGRES_PORT || process.env.PGPORT || 5432),
+  database: process.env.POSTGRES_DB || process.env.PGDATABASE || 'roadrater',
+  user: process.env.POSTGRES_USER || process.env.PGUSER || 'roadrater_user',
+  password: process.env.POSTGRES_PASSWORD || process.env.PGPASSWORD,
+
+  // 🔑 This is the important part for Render:
+  ssl: isProduction
+    ? { rejectUnauthorized: false } // allow Render's self-signed cert
+    : false,                        // no SSL for local dev
+});
 
 // Test connection
 pool.on('connect', () => {
