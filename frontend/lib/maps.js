@@ -12,7 +12,11 @@ let infoWindow = null;
 let loadingPromise = null;
 
 /**
- * Load Google Maps API script
+ * Load Google Maps API script-- Seed sample roads around Boulder, CO
+INSERT INTO road_segments (name, lat, lng) VALUES 
+    ('Pearl Street Downtown', 40.0180, -105.2756),
+    ('US-36 to Denver', 40.0300, -105.2400),
+    ('Baseline Road Residential', 40.0005, -105.2750);
  * Only loads once - subsequent calls return the same promise
  * @returns {Promise<void>}
  */
@@ -26,7 +30,6 @@ export function loadGoogleMapsAPI() {
   if (window.google && window.google.maps) {
     return Promise.resolve();
   }
-
   loadingPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
@@ -35,17 +38,22 @@ export function loadGoogleMapsAPI() {
     
     script.onload = () => {
       if (window.google && window.google.maps) {
+        console.log('[maps] Google Maps API loaded');
         resolve();
       } else {
+        console.error('[maps] Script loaded but google.maps not available');
+        loadingPromise = null;
         reject(new Error('Google Maps API loaded but google.maps is not available'));
       }
     };
     
-    script.onerror = () => {
+    script.onerror = (event) => {
+      console.error('[maps] Script failed to load:', event);
       loadingPromise = null; // Reset so it can be retried
       reject(new Error('Failed to load Google Maps API. Please check your API key and internet connection.'));
     };
     
+
     document.head.appendChild(script);
   });
 
@@ -73,6 +81,7 @@ export function initMap(mapElement, options = {}) {
     zoomControl: true,
   };
 
+  console.log('[maps] Initializing map centered on Boulder, CO');
   map = new google.maps.Map(mapElement, { ...defaultOptions, ...options });
   infoWindow = new google.maps.InfoWindow();
   
@@ -99,7 +108,7 @@ export function addRoadMarkers(roads, onMarkerClick) {
   roads.forEach(road => {
     // Skip roads without valid coordinates
     if (!road.lat || !road.lng) {
-      console.warn(`Road "${road.name}" has no coordinates, skipping marker`);
+      console.warn(`[maps] Road "${road.name}" has no coordinates, skipping marker`);
       return;
     }
 
@@ -110,7 +119,7 @@ export function addRoadMarkers(roads, onMarkerClick) {
 
     // Validate coordinates
     if (isNaN(position.lat) || isNaN(position.lng)) {
-      console.warn(`Road "${road.name}" has invalid coordinates, skipping marker`);
+      console.warn(`[maps] Road "${road.name}" has invalid coordinates, skipping marker`);
       return;
     }
 
@@ -153,17 +162,9 @@ export function addRoadMarkers(roads, onMarkerClick) {
     validMarkerCount++;
   });
 
-  // Fit map to show all markers if we have any
-  if (validMarkerCount > 0) {
-    map.fitBounds(bounds);
-    
-    // Don't zoom in too much if there's only one marker
-    google.maps.event.addListenerOnce(map, 'bounds_changed', () => {
-      if (validMarkerCount === 1 && map.getZoom() > 15) {
-        map.setZoom(15);
-      }
-    });
-  }
+  // Force default Boulder view
+  map.setCenter({ lat: 40.014986, lng: -105.270545 });
+  map.setZoom(12);
 }
 
 /**

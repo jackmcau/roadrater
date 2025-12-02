@@ -96,20 +96,19 @@
         };
 
         const loadLeaderboard = async () => {
-            console.log('[leaderboard] Starting to load leaderboard...');
             try {
-                console.log('[leaderboard] Fetching top roads from API...');
-                const response = await api.getTopRoads();
-                console.log('[leaderboard] API response:', response);
-                const { roads = [] } = response;
-                console.log(`[leaderboard] Loaded ${roads.length} roads`);
+                // api.getTopRoads() now returns Road[] directly (normalized)
+                const roads = await api.getTopRoads();
+                
                 renderLeaderboard(roads);
+                
             } catch (error) {
-                console.error('[leaderboard] Failed to load leaderboard:', error);
-                const message = error instanceof ApiError ? error.message : 'Failed to load leaderboard';
+                console.error('[leaderboard] Failed to load:', error);
+                const message = error instanceof ApiError 
+                    ? error.message 
+                    : 'Failed to load leaderboard. Please try again.';
                 showError(message);
             } finally {
-                console.log('[leaderboard] Hiding loading spinner');
                 loadingEl.classList.add('hidden');
             }
         };

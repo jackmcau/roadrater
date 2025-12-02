@@ -25,6 +25,90 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* Roads Header and View Toggle */
+        .roads-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .view-toggle {
+            display: inline-flex;
+            border-radius: 999px;
+            background: #f3f4f6;
+            padding: 4px;
+        }
+
+        .view-toggle-btn {
+            border: none;
+            background: transparent;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .view-toggle-btn:hover {
+            background: #f3f4f6;
+            transform: translateY(-1px);
+        }
+
+        .view-toggle-btn:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3);
+        }
+
+        .view-toggle-btn.active {
+            background: #4f46e5;
+            color: white;
+        }
+
+        .view-toggle-btn.active:hover {
+            background: #4338ca;
+            transform: translateY(-1px);
+        }
+
+        /* Base list container */
+        .roads-list {
+            margin-top: 1.5rem;
+        }
+
+        /* Grid view (current card layout) */
+        .roads-list.grid-view {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* List view: one card per row */
+        .roads-list.list-view {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .roads-list.list-view .road-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-align: left;
+        }
+
+        .roads-list.list-view .road-card-content {
+            flex: 1;
+            margin-right: 1rem;
+        }
+
+        .roads-list.list-view .road-card .road-card-button {
+            flex-shrink: 0;
+            width: auto;
+            min-width: 120px;
+        }
     </style>
 </head>
 
@@ -59,12 +143,20 @@
 
             <!-- Roads List -->
             <div class="bg-white shadow-xl rounded-xl p-6">
-                <h2 class="text-2xl font-bold text-gray-800">All Roads</h2>
-                <p id="roads-meta" class="hidden text-sm text-gray-500 mb-4"></p>
+                <div class="roads-header">
+                    <div class="roads-header-text">
+                        <h2 class="text-2xl font-bold text-gray-800">All Roads</h2>
+                        <p id="roads-meta" class="hidden text-sm text-gray-500">Showing road segments</p>
+                    </div>
+                    <div class="view-toggle" aria-label="Toggle list or grid view">
+                        <button id="gridViewBtn" class="view-toggle-btn active" aria-pressed="true" aria-label="Switch to grid view">Grid view</button>
+                        <button id="listViewBtn" class="view-toggle-btn" aria-pressed="false" aria-label="Switch to list view">List view</button>
+                    </div>
+                </div>
                 <div id="roads-loading" class="flex justify-center py-8">
                     <div class="loading-spinner"></div>
                 </div>
-                <div id="roads-list" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div id="roads-list" class="roads-list grid-view hidden">
                     <!-- Roads will be populated here -->
                 </div>
                 <div id="roads-error" class="hidden text-center py-8 text-red-600">
@@ -75,130 +167,173 @@
     </main>
 
     <script type="module">
-        import { api } from './lib/api.js';
+        import { api, ApiError } from './lib/api.js';
         import { loadGoogleMapsAPI, initMap, addRoadMarkers } from './lib/maps.js';
 
-    let roads = [];
-    const roadsMeta = document.getElementById('roads-meta');
+        let roads = [];
 
         // Initialize the application
         async function init() {
-            console.log('[map-browse] Starting initialization...');
-            
-            // Start loading roads immediately (don't wait for maps)
-            const roadsPromise = loadRoads();
-            
-            try {
-                // Load Google Maps API
-                console.log('[map-browse] Loading Google Maps API...');
-                await loadGoogleMapsAPI();
-                console.log('[map-browse] Google Maps API loaded successfully');
-                
-                // Show map, hide loading
-                document.getElementById('map-loading').classList.add('hidden');
-                document.getElementById('map').classList.remove('hidden');
-                
-                // Initialize map
-                const mapElement = document.getElementById('map');
-                console.log('[map-browse] Initializing map...');
-                initMap(mapElement);
-                console.log('[map-browse] Map initialized');
-                
-                // Wait for roads to finish loading
-                await roadsPromise;
-                console.log('[map-browse] Initialization complete');
-                
-            } catch (error) {
-                console.error('[map-browse] Map initialization error:', error);
-                showMapError(error.message || 'Failed to initialize map');
-                // Still wait for roads to load even if map fails
-                try {
-                    await roadsPromise;
-                } catch (roadsError) {
-                    console.error('[map-browse] Roads also failed to load:', roadsError);
-                }
-            }
+            // Load roads and map in parallel - they're independent
+            await Promise.allSettled([
+                loadRoadsData(),
+                loadMapView()
+            ]);
         }
 
-        // Load roads from API
-        async function loadRoads() {
-            console.log('[map-browse] Fetching roads from API...');
+        // Load and display roads data
+        async function loadRoadsData() {
+            const loadingEl = document.getElementById('roads-loading');
+            const listEl = document.getElementById('roads-list');
+            const errorEl = document.getElementById('roads-error');
+            const metaEl = document.getElementById('roads-meta');
+            
             try {
-                const response = await api.getRoads();
-                console.log('[map-browse] API response:', response);
-                const { roads: fetchedRoads = [], count = 0, total = 0 } = response;
-                roads = fetchedRoads;
-                console.log(`[map-browse] Loaded ${roads.length} roads`);
-                roadsMeta.textContent = `Showing ${count} of ${total} road segments`;
-                roadsMeta.classList.remove('hidden');
+                const data = await api.getRoads();
+                roads = data.roads;
+                console.log('[map-browse] Loaded', roads.length, 'roads');
                 
-                // Add markers to map (only if map is ready)
+                // Update metadata
+                metaEl.textContent = `Showing ${data.count} of ${data.total} road segments`;
+                metaEl.classList.remove('hidden');
+                
+                // Display roads list
+                displayRoadsList(roads, listEl);
+                
+                // Try to add markers if map is ready
                 try {
-                    console.log('[map-browse] Adding markers to map...');
                     addRoadMarkers(roads, (road) => {
-                        console.log('[map-browse] Road clicked:', road);
+                        console.log('[map-browse] Clicked road:', road.name);
                     });
-                } catch (markerError) {
-                    console.warn('[map-browse] Could not add markers to map:', markerError);
+                } catch (markerErr) {
+                    console.warn('[map-browse] Could not add markers (map may not be ready):', markerErr.message);
                 }
-                
-                // Display roads list (this should always work)
-                console.log('[map-browse] Displaying roads list...');
-                displayRoadsList(roads);
                 
             } catch (error) {
                 console.error('[map-browse] Failed to load roads:', error);
-                document.getElementById('roads-loading').classList.add('hidden');
-                document.getElementById('roads-error').classList.remove('hidden');
-                const errorElement = document.getElementById('roads-error');
-                errorElement.textContent = 'Failed to load roads: ' + (error.message || 'Unknown error');
-                roadsMeta.classList.add('hidden');
+                errorEl.textContent = error instanceof ApiError 
+                    ? error.message 
+                    : 'Failed to load roads. Please try again.';
+                errorEl.classList.remove('hidden');
+                metaEl.classList.add('hidden');
+            } finally {
+                loadingEl.classList.add('hidden');
+            }
+        }
+
+        // Load and initialize map
+        async function loadMapView() {
+            const loadingEl = document.getElementById('map-loading');
+            const mapEl = document.getElementById('map');
+            const errorEl = document.getElementById('map-error');
+            const errorMessageEl = document.getElementById('error-message');
+            
+            try {
+                await loadGoogleMapsAPI();
+                initMap(mapEl);
+                
+                // Show map
+                loadingEl.classList.add('hidden');
+                mapEl.classList.remove('hidden');
+                
+                // If roads already loaded, add markers now
+                if (roads.length > 0) {
+                    addRoadMarkers(roads, (road) => {
+                        console.log('[map-browse] Clicked road:', road.name);
+                    });
+                }
+                
+            } catch (error) {
+                console.error('[map-browse] Map failed to load:', error);
+                errorMessageEl.textContent = 'Failed to load Google Maps. Road list is still available below.';
+                loadingEl.classList.add('hidden');
+                errorEl.classList.remove('hidden');
             }
         }
 
         // Display roads in list format
-        function displayRoadsList(roads) {
-            const container = document.getElementById('roads-list');
-            const loading = document.getElementById('roads-loading');
-            
-            loading.classList.add('hidden');
-            container.classList.remove('hidden');
+        function displayRoadsList(roads, container) {
+            console.log('[map-browse] Rendering', roads.length, 'roads');
             
             if (roads.length === 0) {
-                container.innerHTML = '<p class="col-span-full text-center text-gray-500">No roads found</p>';
-                return;
-            }
-            
-            container.innerHTML = roads.map(road => {
-                const avgRating = parseFloat(road.average_rating || 0).toFixed(1);
-                const ratingCount = road.rating_count || 0;
-                const stars = '★'.repeat(Math.round(avgRating)) + '☆'.repeat(5 - Math.round(avgRating));
-                
-                return `
-                    <div class="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition">
-                        <h3 class="font-bold text-lg text-gray-800 mb-2">${road.name}</h3>
-                        <div class="text-yellow-500 text-xl mb-2">${stars}</div>
-                        <p class="text-gray-600 text-sm mb-3">
-                            ${avgRating} / 5.0 (${ratingCount} ${ratingCount === 1 ? 'rating' : 'ratings'})
-                        </p>
-                        <a href="road-detail.html?id=${road.id}" 
-                           class="inline-block w-full text-center bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition">
-                            View Details
-                        </a>
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <div class="text-gray-400 text-6xl mb-4">🛣️</div>
+                        <p class="text-gray-500 text-lg font-semibold mb-2">No roads found</p>
+                        <p class="text-gray-400 text-sm">Try adjusting your search or check back later</p>
                     </div>
                 `;
-            }).join('');
+            } else {
+                container.innerHTML = roads.map(road => {
+                    const avgRating = Number(road.average_rating || 0);
+                    const ratingCount = road.rating_count || 0;
+                    const roundedRating = Math.round(avgRating);
+                    const stars = '★'.repeat(roundedRating) + '☆'.repeat(5 - roundedRating);
+                    
+                    // Display rating text based on whether there are ratings
+                    const ratingText = ratingCount > 0
+                        ? `${avgRating.toFixed(1)} / 5.0 (${ratingCount} ${ratingCount === 1 ? 'rating' : 'ratings'})`
+                        : 'No ratings yet';
+                    
+                    return `
+                        <div class="road-card border border-gray-200 rounded-lg p-4 hover:shadow-lg transition">
+                            <div class="road-card-content">
+                                <h3 class="font-bold text-lg text-gray-800 mb-2">${road.name}</h3>
+                                <div class="text-yellow-500 text-xl mb-2">${stars}</div>
+                                <p class="text-gray-600 text-sm mb-3">
+                                    ${ratingText}
+                                </p>
+                            </div>
+                            <a href="road-detail.html?id=${road.id}" 
+                               class="road-card-button inline-block w-full text-center bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                               aria-label="View details for ${road.name}">
+                                View Details
+                            </a>
+                        </div>
+                    `;
+                }).join('');
+            }
+            container.classList.remove('hidden');
         }
 
-        // Show map error
-        function showMapError(message) {
-            document.getElementById('map-loading').classList.add('hidden');
-            document.getElementById('map-error').classList.remove('hidden');
-            document.getElementById('error-message').textContent = message;
+        // View toggle functionality
+        function initViewToggle() {
+            const roadsListEl = document.getElementById('roads-list');
+            const gridViewBtn = document.getElementById('gridViewBtn');
+            const listViewBtn = document.getElementById('listViewBtn');
+
+            function setRoadsView(view) {
+                if (!roadsListEl) return;
+
+                if (view === 'list') {
+                    roadsListEl.classList.remove('grid-view');
+                    roadsListEl.classList.add('list-view');
+                    listViewBtn?.classList.add('active');
+                    listViewBtn?.setAttribute('aria-pressed', 'true');
+                    gridViewBtn?.classList.remove('active');
+                    gridViewBtn?.setAttribute('aria-pressed', 'false');
+                } else {
+                    roadsListEl.classList.remove('list-view');
+                    roadsListEl.classList.add('grid-view');
+                    gridViewBtn?.classList.add('active');
+                    gridViewBtn?.setAttribute('aria-pressed', 'true');
+                    listViewBtn?.classList.remove('active');
+                    listViewBtn?.setAttribute('aria-pressed', 'false');
+                }
+            }
+
+            gridViewBtn?.addEventListener('click', () => setRoadsView('grid'));
+            listViewBtn?.addEventListener('click', () => setRoadsView('list'));
+
+            // Default to grid view on initial load
+            setRoadsView('grid');
         }
 
         // Start the application
         init();
+        
+        // Initialize view toggle after DOM is ready
+        initViewToggle();
     </script>
 
 </body>

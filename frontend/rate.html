@@ -42,7 +42,7 @@
                 <p class="text-red-600 font-semibold mb-2">Failed to load a road</p>
                 <p class="text-gray-600" id="error-message"></p>
                 <div class="mt-4 flex flex-wrap justify-center gap-3">
-                    <button id="retry-load-btn" class="px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition">Try Again</button>
+                    <button id="retry-load-btn" class="px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition" aria-label="Retry loading road information">Try Again</button>
                     <a href="map-browse.html" class="px-4 py-2 rounded-lg border border-red-300 text-red-700 font-semibold hover:bg-red-100 transition">Browse Map</a>
                 </div>
             </div>
@@ -51,17 +51,17 @@
                 <div class="bg-white shadow-xl rounded-xl p-6">
                     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                            <p id="cycle-status" class="text-xs uppercase tracking-wide text-indigo-500 font-semibold">Road 1 of 3</p>
+                            <p id="cycle-status" class="text-xs uppercase tracking-wide text-indigo-500 font-semibold">Boulder Roads</p>
                             <h1 id="road-name" class="text-4xl font-extrabold text-indigo-700 mb-2"></h1>
                             <div class="flex items-center space-x-4">
                                 <div id="road-stars" class="text-yellow-500 text-2xl"></div>
                                 <span id="road-rating" class="text-gray-600 text-lg"></span>
                             </div>
-                            <p id="seed-note" class="text-sm text-gray-500 mt-3">Sampling from demo seed data.</p>
+                            <p id="seed-note" class="text-sm text-gray-500 mt-3">Exploring Boulder-area road segments.</p>
                         </div>
                         <div class="flex flex-wrap gap-3 sm:justify-end">
-                            <button id="skip-road-btn" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-100 transition">Skip Road</button>
-                            <button id="next-road-btn" class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition disabled:bg-indigo-300 disabled:cursor-not-allowed" disabled>Next Road</button>
+                            <button id="skip-road-btn" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-100 transition" aria-label="Skip to next road without rating">Skip Road</button>
+                            <button id="next-road-btn" class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition disabled:bg-indigo-300 disabled:cursor-not-allowed" disabled aria-label="Go to next road to rate">Next Road</button>
                         </div>
                     </div>
                 </div>
@@ -240,7 +240,6 @@
         }
 
         async function loadCurrentRoad() {
-            console.log('[rate] Loading current road...');
             showLoadingView();
             updateControlStates({ loading: true });
             hideFormMessages();
@@ -249,26 +248,39 @@
 
             try {
                 const segmentId = getCurrentSegmentId();
-                console.log('[rate] Loading road with ID:', segmentId);
                 updateCycleStatus(segmentId);
-                const response = await api.getRoad(segmentId);
-                console.log('[rate] API response:', response);
-                const { road } = response;
-                console.log('[rate] Road loaded:', road);
+                
+                // api.getRoad() now returns road object directly (normalized)
+                const road = await api.getRoad(segmentId);
+
+                
                 state.currentRoad = road;
                 updateRoadHeader(road, roadHeaderElements);
-                console.log('[rate] Ensuring Google Maps is ready...');
-                await ensureMapsReady();
-                console.log('[rate] Initializing Street View...');
-                initializeStreetView();
-                console.log('[rate] Loading ratings...');
+                
+                // Try to load Street View (optional - won't block if it fails)
+                try {
+
+                    await ensureMapsReady();
+                    initializeStreetView();
+                } catch (mapError) {
+                    console.warn('[rate] Street View unavailable:', mapError.message);
+                    elements.streetView.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <p class="font-semibold">Street View unavailable</p>
+                            <p class="text-sm mt-2">You can still rate this road below.</p>
+                        </div>`;
+                }
+                
                 await loadRatings(segmentId);
-                console.log('[rate] Showing content view');
+                
                 showContentView();
                 updateControlStates({ loading: false });
+                
             } catch (error) {
-                console.error('[rate] Failed to load rate view:', error);
-                const message = error instanceof ApiError ? error.message : 'Failed to load road details';
+                console.error('[rate] Failed to load road:', error);
+                const message = error instanceof ApiError 
+                    ? error.message 
+                    : 'Failed to load road details. Please try again.';
                 showError(message);
                 updateControlStates({ loading: true });
             }
@@ -291,10 +303,11 @@
         async function loadRatings(segmentId) {
             resetRatingsSection(ratingsSection);
             try {
-                const { ratings = [] } = await api.getRatings(segmentId);
+                const response = await api.getRatings(segmentId);
+                const ratings = response?.ratings || response || [];
                 renderRatingsSection(ratingsSection, ratings);
             } catch (error) {
-                console.error('Failed to load ratings:', error);
+                console.error('[rate] loadRatings: Failed to load ratings:', error);
                 renderRatingsSection(ratingsSection, [], { emptyMessage: 'Unable to load ratings right now.' });
             }
         }
@@ -340,11 +353,15 @@
             }
 
             const comment = elements.commentField.value.trim();
+            const originalButtonText = elements.submitBtn.textContent;
+            
             elements.submitBtn.disabled = true;
-            elements.submitBtn.textContent = 'Submitting...';
+            elements.submitBtn.textContent = 'Saving...';
             hideFormMessages();
 
             try {
+
+                
                 await api.submitRating({
                     segmentId: getCurrentSegmentId(),
                     rating: ratingValue,
@@ -354,12 +371,16 @@
                 state.hasSubmittedCurrent = true;
                 updateControlStates();
                 elements.formSuccess.classList.remove('hidden');
+                
             } catch (error) {
-                const message = error instanceof ApiError ? error.message : 'Failed to submit rating';
+                console.error('[rate] Failed to submit rating:', error);
+                const message = error instanceof ApiError 
+                    ? error.message 
+                    : 'Failed to submit rating. Please try again.';
                 showFormError(message);
             } finally {
                 elements.submitBtn.disabled = false;
-                elements.submitBtn.textContent = 'Submit Rating';
+                elements.submitBtn.textContent = originalButtonText;
             }
         }
 
@@ -425,12 +446,10 @@
         }
 
         function init() {
-            console.log('[rate] Initializing rate page...');
             setupRatingForm();
             initControls();
             updateAuthState();
             registerGlobalListeners();
-            console.log('[rate] Starting to load current road...');
             loadCurrentRoad();
         }
 
