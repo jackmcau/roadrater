@@ -226,7 +226,7 @@
         // Load road details from API
         async function loadRoadDetails(roadId) {
             try {
-                const { road } = await api.getRoad(roadId);
+                const road = await api.getRoad(roadId);
                 currentRoad = road;
                 currentSegmentId = Number.parseInt(roadId, 10);
                 

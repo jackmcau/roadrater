@@ -131,10 +131,9 @@
         import { loadGoogleMapsAPI, initStreetView } from './lib/maps.js';
         import { updateRoadHeader, resetRatingsSection, renderRatingsSection, createStarRating } from './lib/roadUi.js';
 
-        const SEED_SEGMENT_IDS = [1, 2, 3];
-
         const state = {
-            order: shuffle([...SEED_SEGMENT_IDS]),
+            allRoads: [],
+            order: [],
             position: 0,
             selectedRating: 0,
             mapsReady: false,
@@ -191,9 +190,26 @@
                 .map(({ value }) => value);
         }
 
+        async function initializeRoadList() {
+            try {
+                const { roads } = await api.getRoads({ limit: 100 }); // Get all roads
+                const validRoads = roads.filter(road => road.lat && road.lng); // Only roads with coordinates
+                state.allRoads = validRoads;
+                state.order = shuffle(validRoads.map(road => road.id));
+                state.position = 0;
+            } catch (error) {
+                console.error('[rate] Failed to load road list:', error);
+                // Fallback to original hardcoded behavior if API fails
+                state.allRoads = [];
+                state.order = [1, 2, 3];
+                state.position = 0;
+            }
+        }
+
         function getCurrentSegmentId() {
             if (!state.order.length) {
-                state.order = shuffle([...SEED_SEGMENT_IDS]);
+                // Fallback to hardcoded IDs if initialization failed
+                state.order = [1, 2, 3];
                 state.position = 0;
             }
             return state.order[state.position];
@@ -202,7 +218,13 @@
         function advanceQueue() {
             state.position += 1;
             if (state.position >= state.order.length) {
-                state.order = shuffle([...SEED_SEGMENT_IDS]);
+                // Reshuffle when we've gone through all roads
+                if (state.allRoads.length > 0) {
+                    state.order = shuffle(state.allRoads.map(road => road.id));
+                } else {
+                    // Fallback behavior
+                    state.order = shuffle([1, 2, 3]);
+                }
                 state.position = 0;
             }
         }
@@ -227,10 +249,10 @@
         }
 
         function updateCycleStatus(segmentId) {
-            const total = state.order.length || SEED_SEGMENT_IDS.length;
+            const total = state.order.length;
             const displayIndex = state.position + 1;
             elements.cycleStatus.textContent = `Road ${displayIndex} of ${total}`;
-            elements.seedNote.textContent = `Sampling seeded test roads · Segment #${segmentId}`;
+            elements.seedNote.textContent = `Exploring Boulder-area road segments · Segment #${segmentId}`;
         }
 
         async function ensureMapsReady() {
@@ -445,11 +467,16 @@
             });
         }
 
-        function init() {
+        async function init() {
             setupRatingForm();
             initControls();
             updateAuthState();
             registerGlobalListeners();
+            
+            // Initialize the road list from the database first
+            await initializeRoadList();
+            
+            // Then load the first road
             loadCurrentRoad();
         }
 
