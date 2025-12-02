@@ -219,3 +219,4 @@ export function initStreetView(element, lat, lng, options = {}) {
     { ...defaultOptions, ...options }
   );
 }
+
