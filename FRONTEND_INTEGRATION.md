@@ -29,7 +29,7 @@ const GOOGLE_MAPS_API_KEY = 'YOUR_ACTUAL_API_KEY_HERE';
 
 ### 1. Start Backend (Terminal 1)
 ```bash
-cd backend
+cd ProjectSourceCode/backend
 npm run dev
 # Backend runs on http://localhost:3001
 ```

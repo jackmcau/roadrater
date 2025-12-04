@@ -1,3 +1,3 @@
 #!/bin/bash
-cd /Users/ratna/roadrater/backend
+cd /Users/ratna/roadrater/ProjectSourceCode/backend
 npm run dev

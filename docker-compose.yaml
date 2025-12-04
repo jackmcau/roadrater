@@ -2,7 +2,7 @@ services:
   db:
     image: postgres:14
     env_file:
-      - ./backend/.env
+      - ./ProjectSourceCode/backend/.env
     healthcheck:
       test:
         - CMD-SHELL
@@ -14,12 +14,12 @@ services:
       - '5432:5432'
     volumes:
       - group-project:/var/lib/postgresql/data
-      - ./backend/db:/docker-entrypoint-initdb.d
+      - ./ProjectSourceCode/backend/db:/docker-entrypoint-initdb.d
   web:
     image: node:lts
     user: 'node'
-    working_dir: /repository/backend
-    env_file: ./backend/.env
+    working_dir: /repository/ProjectSourceCode/backend
+    env_file: ./ProjectSourceCode/backend/.env
     environment:
       - NODE_ENV=development
     depends_on:
