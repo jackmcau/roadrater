@@ -36,7 +36,7 @@ const buildRatingCard = (rating) => {
   const dateLabel = rating.created_at
     ? escapeHtml(new Date(rating.created_at).toLocaleDateString())
     : '';
-  const authorSource = rating.user_id != null ? rating.user_id : 'Anonymous';
+  const authorSource = rating.username != null ? rating.username : 'Anonymous';
   const author = `By: ${escapeHtml(authorSource)}`;
   return `
     <div class="border border-gray-200 rounded-lg p-4">

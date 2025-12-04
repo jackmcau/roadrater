@@ -87,16 +87,19 @@ router.get('/:segmentId', attachUserIfPresent, async (req, res, next) => {
     // Get ratings with aggregated data
     const ratingsResult = await query(
       `SELECT 
-        id, 
-        segment_id, 
-        user_id, 
-        rating, 
-        comment, 
-        created_at,
-        created_at::date as rating_date
-      FROM ratings 
-      WHERE segment_id = $1 
-      ORDER BY created_at DESC`,
+        users.username AS username,
+        ratings.id AS id, 
+        ratings.segment_id AS segment_id, 
+        ratings.user_id AS user_id, 
+        ratings.rating AS rating, 
+        ratings.comment AS comment, 
+        ratings.created_at AS created_at,
+        ratings.created_at::date AS rating_date
+      FROM ratings
+      LEFT JOIN users
+      ON users.id = ratings.user_id
+      WHERE ratings.segment_id = $1
+      ORDER BY ratings.created_at DESC`,
       [parsedId]
     );
     
